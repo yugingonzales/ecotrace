@@ -1,0 +1,3132 @@
+import 'package:flutter/material.dart';
+
+import '../../../core/theme/app_theme.dart';
+
+class AppShell extends StatefulWidget {
+  const AppShell({super.key});
+
+  @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  int _index = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    const pages = <Widget>[
+      EventsScreen(),
+      MapScreen(),
+      SizedBox.shrink(),
+      AlertsScreen(),
+      ProfileScreen(),
+    ];
+    return Scaffold(
+      backgroundColor: EcoTraceColors.canvas,
+      body: IndexedStack(index: _index, children: pages),
+      bottomNavigationBar: _BottomNavigation(
+        selectedIndex: _index,
+        onSelected: (value) => setState(() => _index = value),
+        onScan: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (_) => const ScannerScreen())),
+      ),
+    );
+  }
+}
+
+class _BottomNavigation extends StatelessWidget {
+  const _BottomNavigation({
+    required this.selectedIndex,
+    required this.onSelected,
+    required this.onScan,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+  final VoidCallback onScan;
+
+  @override
+  Widget build(BuildContext context) {
+    return BottomAppBar(
+      color: Colors.white,
+      elevation: 8,
+      height: 76,
+      shape: const CircularNotchedRectangle(),
+      notchMargin: 10,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 340;
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _NavItem(
+                index: 0,
+                icon: Icons.event_outlined,
+                label: 'Events',
+                selectedIndex: selectedIndex,
+                onSelected: onSelected,
+                compact: compact,
+              ),
+              _NavItem(
+                index: 1,
+                icon: Icons.map_outlined,
+                label: 'Map',
+                selectedIndex: selectedIndex,
+                onSelected: onSelected,
+                compact: compact,
+              ),
+              Transform.translate(
+                offset: Offset(0, compact ? -7 : -11),
+                child: SizedBox(
+                  width: compact ? 52 : 64,
+                  height: compact ? 52 : 64,
+                  child: FloatingActionButton(
+                    onPressed: onScan,
+                    backgroundColor: EcoTraceColors.lemon,
+                    foregroundColor: EcoTraceColors.forest,
+                    elevation: 8,
+                    shape: const CircleBorder(
+                      side: BorderSide(color: Colors.white, width: 4),
+                    ),
+                    tooltip: 'Start tree verification',
+                    child: Icon(Icons.add_rounded, size: compact ? 25 : 32),
+                  ),
+                ),
+              ),
+              _NavItem(
+                index: 3,
+                icon: Icons.notifications_none_rounded,
+                label: 'Alerts',
+                badge: '2',
+                selectedIndex: selectedIndex,
+                onSelected: onSelected,
+                compact: compact,
+              ),
+              _NavItem(
+                index: 4,
+                icon: Icons.person_outline_rounded,
+                label: 'Profile',
+                selectedIndex: selectedIndex,
+                onSelected: onSelected,
+                compact: compact,
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.index,
+    required this.icon,
+    required this.label,
+    required this.selectedIndex,
+    required this.onSelected,
+    required this.compact,
+    this.badge,
+  });
+
+  final int index;
+  final IconData icon;
+  final String label;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+  final bool compact;
+  final String? badge;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = selectedIndex == index;
+    return InkWell(
+      onTap: () => onSelected(index),
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: compact ? 2 : 8, vertical: 2),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  icon,
+                  size: compact ? 17 : 19,
+                  color: active ? EcoTraceColors.forest : EcoTraceColors.muted,
+                ),
+                if (badge != null)
+                  Positioned(
+                    right: -9,
+                    top: -6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEF4444),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        badge!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                color: active ? EcoTraceColors.forest : EcoTraceColors.muted,
+                fontSize: compact ? 8 : 9,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LocalEvent {
+  const _LocalEvent({
+    required this.id,
+    required this.day,
+    required this.time,
+    required this.title,
+    required this.location,
+    required this.description,
+    required this.attendeeCount,
+    this.warm = false,
+  });
+
+  final String id;
+  final int day;
+  final String time;
+  final String title;
+  final String location;
+  final String description;
+  final int attendeeCount;
+  final bool warm;
+}
+
+class _EmptyEventsState extends StatelessWidget {
+  const _EmptyEventsState();
+
+  @override
+  Widget build(BuildContext context) => _SurfaceCard(
+    child: Column(
+      children: [
+        const Icon(
+          Icons.event_busy_outlined,
+          color: EcoTraceColors.muted,
+          size: 32,
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          'No activities found',
+          style: TextStyle(
+            color: Color(0xFF0A231C),
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Try another date, search term, or filter.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: EcoTraceColors.muted, fontSize: 12),
+        ),
+      ],
+    ),
+  );
+}
+
+class _EventDetailsSheet extends StatelessWidget {
+  const _EventDetailsSheet({
+    required this.event,
+    required this.joined,
+    required this.onConfirm,
+  });
+
+  final _LocalEvent event;
+  final bool joined;
+  final VoidCallback onConfirm;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Center(
+          child: Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFD5DFD8),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ),
+        const SizedBox(height: 18),
+        Text(
+          event.title,
+          style: const TextStyle(
+            color: Color(0xFF0A231C),
+            fontSize: 21,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          event.time,
+          style: const TextStyle(
+            color: EcoTraceColors.forest,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            const Icon(
+              Icons.location_on_outlined,
+              size: 17,
+              color: EcoTraceColors.muted,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                event.location,
+                style: const TextStyle(
+                  color: EcoTraceColors.muted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            const Icon(
+              Icons.groups_outlined,
+              size: 17,
+              color: EcoTraceColors.muted,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '${event.attendeeCount} monitoring personnel joined',
+              style: const TextStyle(
+                color: EcoTraceColors.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Text(
+          event.description,
+          style: const TextStyle(
+            color: EcoTraceColors.muted,
+            fontSize: 13,
+            height: 1.45,
+          ),
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: onConfirm,
+            icon: Icon(
+              joined
+                  ? Icons.check_circle_outline
+                  : Icons.event_available_outlined,
+            ),
+            label: Text(joined ? 'Joined' : 'Confirm participation'),
+            style: FilledButton.styleFrom(
+              backgroundColor: joined
+                  ? const Color(0xFFE8F0EC)
+                  : EcoTraceColors.forest,
+              foregroundColor: joined ? const Color(0xFF2D8A56) : Colors.white,
+              minimumSize: const Size.fromHeight(50),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class EventsScreen extends StatefulWidget {
+  const EventsScreen({super.key});
+
+  @override
+  State<EventsScreen> createState() => _EventsScreenState();
+}
+
+class _EventsScreenState extends State<EventsScreen> {
+  static const _events = [
+    _LocalEvent(
+      id: 'tree-tagging',
+      day: 6,
+      time: '08:00 AM - 11:30 AM',
+      title: 'Tree planting & tagging',
+      location: 'Sector 4 Reforestation Zone',
+      description: 'Field tagging mission for native tree saplings. Bring your mobile tag verification app logged in.',
+      attendeeCount: 18,
+    ),
+    _LocalEvent(
+      id: 'health-survey',
+      day: 6,
+      time: '01:30 PM - 03:00 PM',
+      title: 'Sector 4 health survey',
+      location: 'North Quadrant Field Station',
+      description: 'Canopy inspection and growth rate measurements for assigned monitoring teams.',
+      attendeeCount: 12,
+      warm: true,
+    ),
+    _LocalEvent(
+      id: 'audit-review',
+      day: 7,
+      time: '09:00 AM - 10:30 AM',
+      title: 'Verification feedback review',
+      location: 'EcoTrace Field Office',
+      description: 'Review returned audit feedback and resolve tree records that need a second verification pass.',
+      attendeeCount: 7,
+    ),
+    _LocalEvent(
+      id: 'canopy-check',
+      day: 8,
+      time: '10:00 AM - 12:00 PM',
+      title: 'North quadrant canopy check',
+      location: 'North Quadrant Field Station',
+      description: 'Follow-up measurements for trees flagged as at risk in the latest audit cycle.',
+      attendeeCount: 9,
+      warm: true,
+    ),
+  ];
+
+  int _selectedDay = 6;
+  String _query = '';
+  bool _joinedOnly = false;
+  final _joinedEvents = <String>{};
+
+  List<_LocalEvent> get _visibleEvents {
+    return _events.where((event) {
+      final matchesDay = event.day == _selectedDay;
+      final searchable = '${event.title} ${event.location} ${event.description}'
+          .toLowerCase();
+      final matchesQuery =
+          _query.isEmpty || searchable.contains(_query.toLowerCase());
+      final matchesJoined = !_joinedOnly || _joinedEvents.contains(event.id);
+      return matchesDay && matchesQuery && matchesJoined;
+    }).toList();
+  }
+
+  Future<void> _openSearch() async {
+    final controller = TextEditingController(text: _query);
+    final value = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Search field activities'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Search title or location',
+          ),
+          onSubmitted: (value) => Navigator.pop(dialogContext, value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            child: const Text('Search'),
+          ),
+        ],
+      ),
+    );
+    if (value != null && mounted) setState(() => _query = value.trim());
+  }
+
+  Future<void> _openFilter() async {
+    final joinedOnly = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: EcoTraceColors.canvas,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            const Text(
+              'Filter activities',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            ListTile(
+              onTap: () => Navigator.pop(sheetContext, false),
+              title: const Text('All activities'),
+              trailing: Icon(
+                _joinedOnly
+                    ? Icons.radio_button_unchecked
+                    : Icons.radio_button_checked,
+                color: EcoTraceColors.forest,
+              ),
+            ),
+            ListTile(
+              onTap: () => Navigator.pop(sheetContext, true),
+              title: const Text('Joined activities'),
+              trailing: Icon(
+                _joinedOnly
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_unchecked,
+                color: EcoTraceColors.forest,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+    if (joinedOnly != null && mounted) setState(() => _joinedOnly = joinedOnly);
+  }
+
+  void _showDetails(_LocalEvent event) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: EcoTraceColors.canvas,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (_) => _EventDetailsSheet(
+        event: event,
+        joined: _joinedEvents.contains(event.id),
+        onConfirm: () {
+          _toggleJoined(event);
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  void _toggleJoined(_LocalEvent event) {
+    setState(() {
+      if (!_joinedEvents.add(event.id)) _joinedEvents.remove(event.id);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _joinedEvents.contains(event.id)
+              ? 'Participation confirmed.'
+              : 'Participation removed.',
+        ),
+        backgroundColor: EcoTraceColors.forest,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleEvents = _visibleEvents;
+    return Column(
+      children: [
+        Container(
+          color: EcoTraceColors.forest,
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            children: [
+              _TopBar(onSearch: _openSearch, onFilter: _openFilter),
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'FIELD ACTIVITIES',
+                          style: TextStyle(
+                            color: EcoTraceColors.lemon,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: .5,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Today\'s schedule',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0x33A3E635),
+                      border: Border.all(color: const Color(0x66A3E635)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '3 active today',
+                      style: TextStyle(
+                        color: Color(0xFFA3E635),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _CalendarStrip(
+                selectedDay: _selectedDay,
+                onSelected: (day) => setState(() => _selectedDay = day),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
+            children: [
+              _SectionTitle(
+                'Schedule for ${_selectedDay == 6 ? 'today' : 'Sep $_selectedDay'}',
+              ),
+              if (visibleEvents.isEmpty)
+                const _EmptyEventsState()
+              else
+                ...visibleEvents.map(
+                  (event) => _EventCard(
+                    time: event.time,
+                    title: event.title,
+                    location: event.location,
+                    description: event.description,
+                    attendeeCount:
+                        event.attendeeCount +
+                        (_joinedEvents.contains(event.id) ? 1 : 0),
+                    warm: event.warm,
+                    joined: _joinedEvents.contains(event.id),
+                    onOpen: () => _showDetails(event),
+                    onConfirm: () => _toggleJoined(event),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MapTree {
+  const _MapTree({
+    required this.code,
+    required this.species,
+    required this.planted,
+    required this.planter,
+    required this.status,
+    required this.dbh,
+    required this.crown,
+    required this.color,
+  });
+
+  final String code;
+  final String species;
+  final String planted;
+  final String planter;
+  final String status;
+  final String dbh;
+  final String crown;
+  final Color color;
+}
+
+class MapScreen extends StatefulWidget {
+  const MapScreen({super.key});
+
+  @override
+  State<MapScreen> createState() => _MapScreenState();
+}
+
+class _MapScreenState extends State<MapScreen> {
+  static const _trees = [
+    _MapTree(
+      code: 'T-104',
+      species: 'Narra',
+      planted: 'Jun 12, 2024',
+      planter: 'CWTS Team A',
+      status: 'Healthy',
+      dbh: '24.6 cm',
+      crown: '5.2 m',
+      color: Color(0xFF22C55E),
+    ),
+    _MapTree(
+      code: 'T-118',
+      species: 'Molave',
+      planted: 'May 28, 2024',
+      planter: 'Green Roots Org.',
+      status: 'At risk',
+      dbh: '18.3 cm',
+      crown: '3.8 m',
+      color: Color(0xFFF97316),
+    ),
+    _MapTree(
+      code: 'T-121',
+      species: 'Yakal',
+      planted: 'Jul 03, 2024',
+      planter: 'CWTS Team B',
+      status: 'Healthy',
+      dbh: '21.1 cm',
+      crown: '4.6 m',
+      color: Color(0xFF22C55E),
+    ),
+    _MapTree(
+      code: 'T-109',
+      species: 'Unknown',
+      planted: 'Record pending',
+      planter: 'Unassigned',
+      status: 'Unknown',
+      dbh: 'Pending',
+      crown: 'Pending',
+      color: Color(0xFF64748B),
+    ),
+  ];
+
+  _MapTree _selectedTree = _trees[0];
+
+  void _selectTree(String code) {
+    final tree = _trees.firstWhere((tree) => tree.code == code);
+    setState(() => _selectedTree = tree);
+  }
+
+  void _handleMapTap(TapUpDetails details) {
+    final point = details.localPosition;
+    if ((point - const Offset(65, 120)).distance < 58) {
+      _selectTree('T-118');
+    } else if ((point - const Offset(90, 245)).distance < 58) {
+      _selectTree('T-104');
+    } else if ((point - const Offset(318, 365)).distance < 58) {
+      _selectTree('T-121');
+    } else if ((point - const Offset(158, 405)).distance < 58) {
+      _selectTree('T-109');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Container(
+          color: const Color(0xFFDDE8D9),
+          child: CustomPaint(painter: _FieldMapPainter()),
+        ),
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTapUp: _handleMapTap,
+            child: const SizedBox.expand(),
+          ),
+        ),
+        Positioned(
+          left: 72,
+          top: 210,
+          child: _TreeMarker(
+            code: 'T-104',
+            color: const Color(0xFF22C55E),
+            onTap: () => _selectTree('T-104'),
+          ),
+        ),
+        Positioned(
+          left: 46,
+          top: 96,
+          child: _TreeMarker(
+            code: 'T-118',
+            color: const Color(0xFFF97316),
+            onTap: () => _selectTree('T-118'),
+          ),
+        ),
+        Positioned(
+          left: 300,
+          top: 330,
+          child: _TreeMarker(
+            code: 'T-121',
+            color: const Color(0xFF22C55E),
+            onTap: () => _selectTree('T-121'),
+          ),
+        ),
+        Positioned(
+          left: 140,
+          top: 370,
+          child: _TreeMarker(
+            code: 'T-109',
+            color: const Color(0xFF64748B),
+            onTap: () => _selectTree('T-109'),
+          ),
+        ),
+        const Positioned(left: 175, top: 280, child: _GpsMarker()),
+        const Positioned(
+          top: 132,
+          left: 18,
+          child: _MapLabel(
+            icon: Icons.forest_outlined,
+            text: 'Sector 4\nReforestation Zone',
+          ),
+        ),
+        const Positioned(
+          top: 310,
+          right: 18,
+          child: _MapLabel(
+            icon: Icons.terrain_outlined,
+            text: 'North\nQuadrant',
+          ),
+        ),
+        Positioned(
+          top: 132,
+          left: 18,
+          child: Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: .92),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: const [
+                BoxShadow(color: Color(0x1A000000), blurRadius: 8),
+              ],
+            ),
+            child: const Text(
+              'N',
+              style: TextStyle(
+                color: EcoTraceColors.forest,
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          left: 18,
+          bottom: 116,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: .92),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: const [
+                BoxShadow(color: Color(0x1A000000), blurRadius: 8),
+              ],
+            ),
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.straighten_rounded,
+                  color: EcoTraceColors.forest,
+                  size: 14,
+                ),
+                SizedBox(width: 5),
+                Text(
+                  '50 m',
+                  style: TextStyle(
+                    color: EcoTraceColors.forest,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Positioned(
+          top: 16,
+          left: 16,
+          right: 16,
+          child: _MapHeader(onTreeSelected: _selectTree),
+        ),
+        Positioned(top: 76, right: 16, child: _MapLegend()),
+        AnimatedPositioned(
+          left: 20,
+          right: 20,
+          bottom: 92,
+          duration: const Duration(milliseconds: 360),
+          curve: Curves.easeOutCubic,
+          child: _TreeDetails(tree: _selectedTree),
+        ),
+      ],
+    );
+  }
+}
+
+class AlertsScreen extends StatelessWidget {
+  const AlertsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const _TopBar(),
+        Container(
+          width: double.infinity,
+          color: EcoTraceColors.forest,
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'GOOD MORNING!',
+                style: TextStyle(
+                  color: EcoTraceColors.lemon,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: .5,
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Here\'s what\'s\nhappening today',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  height: 1.15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
+            children: const [
+              _FilterTabs(),
+              _AlertCard(
+                title: 'Monitoring team selection',
+                time: 'Just now',
+                label: 'SELECTED',
+                color: Color(0xFFD7F5E3),
+                textColor: Color(0xFF15803D),
+                body: 'You have been selected for the Sector 4 Monitoring Team. Your expertise in tree health is a great addition to this mission.',
+              ),
+              _AlertCard(
+                title: 'Mandatory tree survey',
+                time: '12 min ago',
+                label: 'URGENT',
+                color: Color(0xFFFEF3C7),
+                textColor: Color(0xFFD97706),
+                body: 'Complete the Sector 4 tree health monitoring by 17:00 today. High priority.',
+              ),
+              _AlertCard(
+                title: 'Sync complete',
+                time: '2 hrs ago',
+                label: 'INFO',
+                color: Color(0xFFE0F2FE),
+                textColor: Color(0xFF0284C7),
+                body: '7 verification records have been successfully synchronized to the EcoTrace system.',
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class ProfileScreen extends StatelessWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          color: EcoTraceColors.forest,
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            children: [
+              const _TopBar(),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .08),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: .15),
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: const BoxDecoration(
+                        color: EcoTraceColors.lemon,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'MS',
+                          style: TextStyle(
+                            color: EcoTraceColors.forest,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Monitoring Staff',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Field verifier',
+                            style: TextStyle(
+                              color: Color(0xFFA3E635),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          SizedBox(height: 6),
+                          Text(
+                            'STAFF-00042',
+                            style: TextStyle(
+                              color: Color(0xFFE8F5ED),
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
+            children: [
+              const _SectionTitle('Account details'),
+              _SurfaceCard(
+                child: Column(
+                  children: [
+                    const _InfoRow(
+                      icon: Icons.badge_outlined,
+                      label: 'Staff number',
+                      value: '239038',
+                    ),
+                    const _InfoRow(
+                      icon: Icons.verified_user_outlined,
+                      label: 'Staff type',
+                      value: 'Field staff',
+                    ),
+                    _InfoRow(
+                      icon: Icons.cloud_done_outlined,
+                      label: 'Sync status',
+                      value: 'All records synced',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const SyncDashboardScreen(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () =>
+                    Navigator.of(context).popUntil((route) => route.isFirst),
+                icon: const Icon(Icons.logout_rounded),
+                label: const Text('Sign out'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: EcoTraceColors.error,
+                  side: const BorderSide(
+                    color: EcoTraceColors.border,
+                    width: 2,
+                  ),
+                  minimumSize: const Size.fromHeight(54),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class ScannerScreen extends StatelessWidget {
+  const ScannerScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: EcoTraceColors.forest,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    tooltip: 'Close scanner',
+                  ),
+                  const SizedBox(width: 2),
+                  const Text(
+                    'Scan tag',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const Spacer(),
+                  const _StatusBadge(label: 'GPS ready'),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 220,
+                    height: 220,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: EcoTraceColors.lemon, width: 3),
+                      borderRadius: BorderRadius.circular(28),
+                      color: Colors.black.withValues(alpha: .2),
+                    ),
+                    child: Center(
+                      child: Container(
+                        width: 160,
+                        height: 160,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.white38),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(
+                          Icons.center_focus_strong_rounded,
+                          color: EcoTraceColors.lemon,
+                          size: 42,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Scan NFC or QR tag',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const SizedBox(
+                    width: 240,
+                    child: Text(
+                      'Align the code inside the viewfinder. GPS location will be locked automatically.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xFFA3C2B5),
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 26),
+              child: FilledButton.icon(
+                onPressed: () => _showManualEntry(context),
+                icon: const Icon(Icons.edit_outlined),
+                label: const Text('Enter tree details manually'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: EcoTraceColors.lemon,
+                  foregroundColor: const Color(0xFF0A231C),
+                  minimumSize: const Size.fromHeight(52),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static void _showManualEntry(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: EcoTraceColors.canvas,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (_) => const _ManualEntrySheet(),
+    );
+  }
+}
+
+class _TopBar extends StatelessWidget {
+  const _TopBar({this.onSearch, this.onFilter});
+
+  final VoidCallback? onSearch;
+  final VoidCallback? onFilter;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: EcoTraceColors.lemon,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(
+          Icons.layers_outlined,
+          color: EcoTraceColors.forest,
+          size: 22,
+        ),
+      ),
+      const SizedBox(width: 10),
+      const Text(
+        'EcoTrace',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      const Spacer(),
+      IconButton(
+        onPressed: onSearch,
+        icon: const Icon(Icons.search_rounded, color: Colors.white, size: 19),
+        style: IconButton.styleFrom(backgroundColor: Colors.white12),
+        tooltip: 'Search',
+      ),
+      const SizedBox(width: 4),
+      IconButton(
+        onPressed: onFilter,
+        icon: const Icon(Icons.tune_rounded, color: Colors.white, size: 19),
+        style: IconButton.styleFrom(backgroundColor: Colors.white12),
+        tooltip: 'Filter',
+      ),
+    ],
+  );
+}
+
+class _CalendarStrip extends StatelessWidget {
+  const _CalendarStrip({required this.selectedDay, required this.onSelected});
+
+  final int selectedDay;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    const days = [
+      ('Fri', '5'),
+      ('Sat', '6'),
+      ('Sun', '7'),
+      ('Mon', '8'),
+      ('Tue', '9'),
+    ];
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: .2),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: days
+            .map(
+              (day) => Expanded(
+                child: InkWell(
+                  onTap: () => onSelected(int.parse(day.$2)),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    decoration: BoxDecoration(
+                      color: int.parse(day.$2) == selectedDay
+                          ? EcoTraceColors.lemon
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          day.$1,
+                          style: TextStyle(
+                            color: int.parse(day.$2) == selectedDay
+                                ? const Color(0xFF0A231C)
+                                : const Color(0xFFA3B8AC),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          day.$2,
+                          style: TextStyle(
+                            color: int.parse(day.$2) == selectedDay
+                                ? const Color(0xFF0A231C)
+                                : Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _EventCard extends StatelessWidget {
+  const _EventCard({
+    required this.time,
+    required this.title,
+    required this.location,
+    required this.description,
+    required this.attendeeCount,
+    required this.joined,
+    required this.onOpen,
+    required this.onConfirm,
+    this.warm = false,
+  });
+
+  final String time;
+  final String title;
+  final String location;
+  final String description;
+  final int attendeeCount;
+  final bool joined;
+  final VoidCallback onOpen;
+  final VoidCallback onConfirm;
+  final bool warm;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'View details for $title',
+      hint: 'Opens the full event details',
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(20),
+        child: _SurfaceCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: warm
+                      ? const Color(0xFFFEF3C7)
+                      : const Color(0xFFD7F5E3),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  time,
+                  style: TextStyle(
+                    color: warm
+                        ? const Color(0xFFD97706)
+                        : const Color(0xFF15803D),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        color: Color(0xFF0A231C),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: EcoTraceColors.muted,
+                    size: 22,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.location_on_outlined,
+                    size: 15,
+                    color: EcoTraceColors.muted,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      location,
+                      style: const TextStyle(
+                        color: EcoTraceColors.muted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                description,
+                style: const TextStyle(
+                  color: EcoTraceColors.muted,
+                  fontSize: 12,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Divider(height: 1, color: Color(0xFFF0F4F1)),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        _Avatar('JA'),
+                        _Avatar('MC'),
+                        _Avatar('KV'),
+                        SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            '+$attendeeCount joined',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Color(0xFF7A9185),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: onConfirm,
+                    style: TextButton.styleFrom(
+                      backgroundColor: joined
+                          ? const Color(0xFFE8F0EC)
+                          : EcoTraceColors.forest,
+                      foregroundColor: joined
+                          ? const Color(0xFF2D8A56)
+                          : Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 6,
+                      ),
+                      minimumSize: Size.zero,
+                    ),
+                    child: Text(
+                      joined ? 'Joined' : 'Confirm',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterTabs extends StatefulWidget {
+  const _FilterTabs();
+
+  @override
+  State<_FilterTabs> createState() => _FilterTabsState();
+}
+
+class _FilterTabsState extends State<_FilterTabs> {
+  String _selected = 'All';
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: ['All', 'Recent', 'By date']
+        .map(
+          (label) => Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: TextButton(
+              onPressed: () => setState(() => _selected = label),
+              style: TextButton.styleFrom(
+                backgroundColor: label == _selected
+                    ? EcoTraceColors.forest
+                    : const Color(0xFFE8F0EC),
+                foregroundColor: label == _selected
+                    ? Colors.white
+                    : EcoTraceColors.muted,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                minimumSize: Size.zero,
+              ),
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        )
+        .toList(),
+  );
+}
+
+class _AlertCard extends StatelessWidget {
+  const _AlertCard({
+    required this.title,
+    required this.time,
+    required this.label,
+    required this.color,
+    required this.textColor,
+    required this.body,
+  });
+
+  final String title;
+  final String time;
+  final String label;
+  final Color color;
+  final Color textColor;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) => _SurfaceCard(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: Color(0xFF0A231C),
+                  fontSize: 16,
+                  height: 1.2,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          time,
+          style: const TextStyle(
+            color: Color(0xFF7A9185),
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          body,
+          style: const TextStyle(
+            color: EcoTraceColors.muted,
+            fontSize: 12,
+            height: 1.45,
+          ),
+        ),
+        const SizedBox(height: 14),
+        TextButton(
+          onPressed: () => showDialog<void>(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: Text(title),
+              content: Text(body),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close'),
+                ),
+              ],
+            ),
+          ),
+          style: TextButton.styleFrom(
+            alignment: Alignment.centerLeft,
+            padding: EdgeInsets.zero,
+            minimumSize: Size.zero,
+          ),
+          child: const Text(
+            'View details  →',
+            style: TextStyle(
+              color: EcoTraceColors.forest,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _MapHeader extends StatelessWidget {
+  const _MapHeader({required this.onTreeSelected});
+
+  final ValueChanged<String> onTreeSelected;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    decoration: BoxDecoration(
+      color: EcoTraceColors.forest.withValues(alpha: .94),
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 18)],
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: EcoTraceColors.lemon,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(
+            Icons.layers_outlined,
+            color: EcoTraceColors.forest,
+            size: 19,
+          ),
+        ),
+        const SizedBox(width: 10),
+        const Text(
+          'EcoTrace',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const Spacer(),
+        const Icon(Icons.circle, size: 7, color: Color(0xFFA3E635)),
+        const SizedBox(width: 4),
+        const Text(
+          'Online',
+          style: TextStyle(
+            color: Color(0xFFA3E635),
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        PopupMenuButton<String>(
+          tooltip: 'Select tree',
+          icon: const Icon(Icons.park_outlined, color: Colors.white, size: 19),
+          onSelected: onTreeSelected,
+          itemBuilder: (context) => const [
+            PopupMenuItem(value: 'T-104', child: Text('T-104 · Narra')),
+            PopupMenuItem(value: 'T-118', child: Text('T-118 · Molave')),
+            PopupMenuItem(value: 'T-121', child: Text('T-121 · Yakal')),
+            PopupMenuItem(value: 'T-109', child: Text('T-109 · Unknown')),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+class _MapLegend extends StatelessWidget {
+  const _MapLegend();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: .95),
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 12)],
+    ),
+    child: const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _Legend(color: Color(0xFF22C55E), text: 'Healthy'),
+        _Legend(color: Color(0xFFF97316), text: 'At risk'),
+        _Legend(color: Color(0xFF64748B), text: 'Unknown'),
+      ],
+    ),
+  );
+}
+
+class _TreeDetails extends StatelessWidget {
+  const _TreeDetails({required this.tree});
+
+  final _MapTree tree;
+
+  @override
+  Widget build(BuildContext context) => _SurfaceCard(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'SELECTED TREE',
+          style: TextStyle(
+            color: Color(0xFF7A9185),
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: .5,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                tree.code,
+                style: TextStyle(
+                  color: Color(0xFF0A231C),
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: tree.status == 'Healthy'
+                    ? const Color(0xFFDCFCE7)
+                    : const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                tree.status,
+                style: TextStyle(
+                  color: tree.status == 'Healthy'
+                      ? const Color(0xFF15803D)
+                      : const Color(0xFFD97706),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            _Metric(label: 'Species', value: tree.species),
+            _Metric(label: 'DBH', value: tree.dbh),
+            _Metric(label: 'Crown', value: tree.crown),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _TreeMeta(
+                icon: Icons.event_outlined,
+                label: 'Planted',
+                value: tree.planted,
+              ),
+            ),
+            Expanded(
+              child: _TreeMeta(
+                icon: Icons.groups_outlined,
+                label: 'Planted by',
+                value: tree.planter,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const ScannerScreen()),
+            ),
+            icon: const Icon(Icons.fact_check_outlined, size: 18),
+            label: const Text('Start verification'),
+            style: FilledButton.styleFrom(
+              backgroundColor: EcoTraceColors.lemon,
+              foregroundColor: const Color(0xFF0A231C),
+              minimumSize: const Size.fromHeight(48),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => IncidentReportScreen(treeCode: tree.code),
+              ),
+            ),
+            icon: const Icon(Icons.report_problem_outlined, size: 18),
+            label: const Text('Report tree incident'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: EcoTraceColors.error,
+              side: const BorderSide(color: EcoTraceColors.border),
+              minimumSize: const Size.fromHeight(44),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _FieldMapPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final base = Paint()..color = const Color(0xFFDDE8D9);
+    canvas.drawRect(Offset.zero & size, base);
+
+    final water = Paint()..color = const Color(0xFF9FC9D2);
+    final waterPath = Path()
+      ..moveTo(size.width * .70, 0)
+      ..cubicTo(
+        size.width * .62,
+        size.height * .16,
+        size.width * .88,
+        size.height * .27,
+        size.width * .72,
+        size.height * .42,
+      )
+      ..cubicTo(
+        size.width * .58,
+        size.height * .57,
+        size.width * .83,
+        size.height * .72,
+        size.width * .69,
+        size.height,
+      )
+      ..lineTo(size.width, size.height)
+      ..lineTo(size.width, 0)
+      ..close();
+    canvas.drawPath(waterPath, water);
+
+    final wetland = Paint()..color = const Color(0xFFB7D7B4);
+    canvas.drawOval(
+      Rect.fromLTWH(
+        -size.width * .18,
+        size.height * .28,
+        size.width * .72,
+        size.height * .48,
+      ),
+      wetland,
+    );
+
+    final parcelPaint = Paint()
+      ..color = const Color(0x3389A97F)
+      ..style = PaintingStyle.fill;
+    final parcelLine = Paint()
+      ..color = const Color(0x66829D7A)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final parcels = [
+      Path()..addPolygon([
+        Offset(0, size.height * .10),
+        Offset(size.width * .34, size.height * .02),
+        Offset(size.width * .45, size.height * .22),
+        Offset(size.width * .08, size.height * .29),
+      ], true),
+      Path()..addPolygon([
+        Offset(size.width * .03, size.height * .54),
+        Offset(size.width * .42, size.height * .43),
+        Offset(size.width * .55, size.height * .70),
+        Offset(size.width * .12, size.height * .82),
+      ], true),
+      Path()..addPolygon([
+        Offset(size.width * .42, size.height * .70),
+        Offset(size.width * .66, size.height * .56),
+        Offset(size.width * .68, size.height),
+        Offset(size.width * .28, size.height),
+      ], true),
+    ];
+    for (final parcel in parcels) {
+      canvas.drawPath(parcel, parcelPaint);
+      canvas.drawPath(parcel, parcelLine);
+    }
+
+    final road = Paint()
+      ..color = const Color(0xFFE5D8B9)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 15
+      ..strokeCap = StrokeCap.round;
+    final roadEdge = Paint()
+      ..color = const Color(0x99B39F79)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    final accessRoad = Path()
+      ..moveTo(-20, size.height * .78)
+      ..cubicTo(
+        size.width * .20,
+        size.height * .66,
+        size.width * .30,
+        size.height * .48,
+        size.width * .52,
+        size.height * .42,
+      )
+      ..cubicTo(
+        size.width * .69,
+        size.height * .37,
+        size.width * .72,
+        size.height * .18,
+        size.width + 20,
+        size.height * .12,
+      );
+    canvas.drawPath(accessRoad, road);
+    canvas.drawPath(accessRoad, roadEdge);
+
+    final minorRoad = Paint()
+      ..color = const Color(0x99E9DFCA)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 7;
+    final minorRoadPath = Path()
+      ..moveTo(size.width * .10, size.height)
+      ..cubicTo(
+        size.width * .16,
+        size.height * .78,
+        size.width * .22,
+        size.height * .68,
+        size.width * .31,
+        size.height * .55,
+      );
+    canvas.drawPath(minorRoadPath, minorRoad);
+
+    final grove = Paint()..color = const Color(0x5590B889);
+    for (final point in [
+      Offset(size.width * .12, size.height * .20),
+      Offset(size.width * .20, size.height * .25),
+      Offset(size.width * .31, size.height * .15),
+      Offset(size.width * .16, size.height * .38),
+      Offset(size.width * .37, size.height * .30),
+    ]) {
+      canvas.drawCircle(point, 18, grove);
+      canvas.drawCircle(point.translate(10, 4), 12, grove);
+    }
+
+    final boundary = Paint()
+      ..color = const Color(0x66819B7B)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    for (double x = size.width * .08; x < size.width * .60; x += 48) {
+      canvas.drawLine(
+        Offset(x, size.height * .05),
+        Offset(x + 20, size.height * .54),
+        boundary,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _MapLabel extends StatelessWidget {
+  const _MapLabel({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: const Color(0xAA456B4A), size: 15),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: const TextStyle(
+            color: Color(0xAA456B4A),
+            fontSize: 9,
+            fontWeight: FontWeight.w800,
+            height: 1.1,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _TreeMarker extends StatelessWidget {
+  const _TreeMarker({
+    required this.code,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String code;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'Tree marker $code',
+    child: Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Column(
+          children: [
+            SizedBox(
+              width: 38,
+              height: 42,
+              child: Stack(
+                alignment: Alignment.topCenter,
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x44000000),
+                          blurRadius: 8,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.park_outlined,
+                      color: Colors.white,
+                      size: 19,
+                    ),
+                  ),
+                  Positioned(
+                    top: 28,
+                    child: CustomPaint(
+                      size: const Size(10, 14),
+                      painter: _PinTailPainter(color),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              margin: const EdgeInsets.only(top: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: EcoTraceColors.forest,
+                borderRadius: BorderRadius.circular(6),
+                boxShadow: const [
+                  BoxShadow(color: Color(0x33000000), blurRadius: 5),
+                ],
+              ),
+              child: Text(
+                code,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _PinTailPainter extends CustomPainter {
+  const _PinTailPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(size.width / 2, size.height)
+      ..lineTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PinTailPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+class _GpsMarker extends StatelessWidget {
+  const _GpsMarker();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 20,
+    height: 20,
+    decoration: BoxDecoration(
+      color: const Color(0xFF2563EB),
+      shape: BoxShape.circle,
+      border: Border.all(color: Colors.white, width: 3),
+      boxShadow: const [BoxShadow(color: Color(0x662563EB), blurRadius: 12)],
+    ),
+  );
+}
+
+class _SurfaceCard extends StatelessWidget {
+  const _SurfaceCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(18),
+    margin: const EdgeInsets.only(bottom: 16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: EcoTraceColors.border),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x08000000),
+          blurRadius: 12,
+          offset: Offset(0, 4),
+        ),
+      ],
+    ),
+    child: child,
+  );
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Text(
+      text.toUpperCase(),
+      style: const TextStyle(
+        color: Color(0xFF7A9185),
+        fontSize: 10,
+        fontWeight: FontWeight.w800,
+        letterSpacing: .5,
+      ),
+    ),
+  );
+}
+
+class _Avatar extends StatelessWidget {
+  const _Avatar(this.initials);
+
+  final String initials;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 24,
+    height: 24,
+    margin: const EdgeInsets.only(right: 2),
+    decoration: BoxDecoration(
+      color: EcoTraceColors.forest,
+      shape: BoxShape.circle,
+      border: Border.all(color: Colors.white, width: 2),
+    ),
+    child: Center(
+      child: Text(
+        initials,
+        style: const TextStyle(
+          color: EcoTraceColors.lemon,
+          fontSize: 8,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    ),
+  );
+}
+
+class _Legend extends StatelessWidget {
+  const _Legend({required this.color, required this.text});
+
+  final Color color;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          text,
+          style: const TextStyle(
+            color: Color(0xFF0A231C),
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _Metric extends StatelessWidget {
+  const _Metric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            color: Color(0xFF7A9185),
+            fontSize: 9,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Color(0xFF0A231C),
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _TreeMeta extends StatelessWidget {
+  const _TreeMeta({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Icon(icon, color: EcoTraceColors.forest, size: 16),
+      const SizedBox(width: 6),
+      Flexible(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+// Missing Map Components - Added to fix blank map view
+
+class _MapTree {
+  const _MapTree({
+    required this.code,
+    required this.species,
+    required this.planted,
+    required this.planter,
+    required this.status,
+    required this.dbh,
+    required this.crown,
+    required this.color,
+  });
+
+  final String code;
+  final String species;
+  final String planted;
+  final String planter;
+  final String status;
+  final String dbh;
+  final String crown;
+  final Color color;
+}
+
+class _FieldMapPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final gridPaint = Paint()
+      ..color = const Color(0xFFCBD9C5)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    final pathPaint = Paint()
+      ..color = const Color(0xFFB8C9B2)
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke;
+
+    // Draw grid lines
+    const gridSize = 40.0;
+    for (double x = 0; x < size.width; x += gridSize) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
+    }
+    for (double y = 0; y < size.height; y += gridSize) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    // Draw walking paths
+    final path = Path()
+      ..moveTo(size.width * 0.1, size.height * 0.2)
+      ..quadraticBezierTo(
+        size.width * 0.3,
+        size.height * 0.35,
+        size.width * 0.5,
+        size.height * 0.45,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.7,
+        size.height * 0.55,
+        size.width * 0.85,
+        size.height * 0.7,
+      );
+
+    canvas.drawPath(path, pathPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _TreeMarker extends StatelessWidget {
+  const _TreeMarker({
+    required this.code,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String code;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 3),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.park_rounded,
+          color: Colors.white,
+          size: 18,
+        ),
+      ),
+    ),
+  );
+}
+
+class _GpsMarker extends StatelessWidget {
+  const _GpsMarker();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 16,
+    height: 16,
+    decoration: BoxDecoration(
+      color: Colors.blue,
+      shape: BoxShape.circle,
+      border: Border.all(color: Colors.white, width: 3),
+      boxShadow: const [
+        BoxShadow(color: Color(0x66000000), blurRadius: 8),
+      ],
+    ),
+  );
+}
+
+class _MapLabel extends StatelessWidget {
+  const _MapLabel({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: .9),
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: const [
+        BoxShadow(color: Color(0x1A000000), blurRadius: 8),
+      ],
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: EcoTraceColors.forest),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: const TextStyle(
+            color: EcoTraceColors.forest,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            height: 1.3,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+          children: [
+            Text(
+              label.toUpperCase(),
+              style: const TextStyle(
+                color: Color(0xFF7A9185),
+                fontSize: 8,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF0A231C),
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF4F8F5),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: EcoTraceColors.forest, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label.toUpperCase(),
+                style: const TextStyle(
+                  color: Color(0xFF7A9185),
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 1),
+              Text(
+                value,
+                style: const TextStyle(
+                  color: Color(0xFF0A231C),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: const Color(0x3322C55E),
+      border: Border.all(color: const Color(0x6622C55E)),
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.circle, color: Color(0xFF4ADE80), size: 7),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF4ADE80),
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class IncidentReportScreen extends StatelessWidget {
+  const IncidentReportScreen({required this.treeCode, super.key});
+
+  final String treeCode;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: EcoTraceColors.canvas,
+      appBar: AppBar(
+        backgroundColor: EcoTraceColors.forest,
+        foregroundColor: Colors.white,
+        title: const Text(
+          'Report incident',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        children: [
+          const _SectionTitle('Linked tree record'),
+          _SurfaceCard(
+            child: Row(
+              children: [
+                const Icon(Icons.park_outlined, color: EcoTraceColors.forest),
+                const SizedBox(width: 10),
+                Text(
+                  treeCode,
+                  style: const TextStyle(
+                    color: Color(0xFF0A231C),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const Spacer(),
+                const _StatusBadge(label: 'Draft'),
+              ],
+            ),
+          ),
+          const _SectionTitle('Incident details'),
+          DropdownButtonFormField<String>(
+            initialValue: 'Damaged tree',
+            decoration: const InputDecoration(labelText: 'Incident type'),
+            items: const [
+              DropdownMenuItem(
+                value: 'Damaged tree',
+                child: Text('Damaged tree'),
+              ),
+              DropdownMenuItem(
+                value: 'Missing tree',
+                child: Text('Missing tree'),
+              ),
+              DropdownMenuItem(value: 'Other', child: Text('Other')),
+            ],
+            onChanged: (_) {},
+          ),
+          const SizedBox(height: 14),
+          DropdownButtonFormField<String>(
+            initialValue: 'Medium',
+            decoration: const InputDecoration(labelText: 'Severity'),
+            items: const [
+              DropdownMenuItem(value: 'Low', child: Text('Low')),
+              DropdownMenuItem(value: 'Medium', child: Text('Medium')),
+              DropdownMenuItem(value: 'High', child: Text('High')),
+            ],
+            onChanged: (_) {},
+          ),
+          const SizedBox(height: 14),
+          const TextField(
+            maxLines: 5,
+            decoration: InputDecoration(
+              labelText: 'Description',
+              hintText: 'Describe the damage or missing tree evidence',
+            ),
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            onPressed: () {},
+            icon: const Icon(Icons.photo_camera_outlined),
+            label: const Text('Add photo evidence'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: EcoTraceColors.forest,
+              minimumSize: const Size.fromHeight(50),
+              side: const BorderSide(color: EcoTraceColors.border),
+            ),
+          ),
+          const SizedBox(height: 20),
+          FilledButton(
+            onPressed: () {
+              final messenger = ScaffoldMessenger.of(context);
+              messenger.showSnackBar(
+                const SnackBar(
+                  content: Text('Incident draft saved locally.'),
+                  backgroundColor: EcoTraceColors.forest,
+                ),
+              );
+              Navigator.pop(context);
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: EcoTraceColors.forest,
+              minimumSize: const Size.fromHeight(52),
+            ),
+            child: const Text('Save incident draft'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class SyncDashboardScreen extends StatelessWidget {
+  const SyncDashboardScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: EcoTraceColors.canvas,
+      appBar: AppBar(
+        backgroundColor: EcoTraceColors.forest,
+        foregroundColor: Colors.white,
+        title: const Text(
+          'Sync dashboard',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+        ),
+        actions: [
+          IconButton(
+            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Sync status refreshed.'),
+                backgroundColor: EcoTraceColors.forest,
+              ),
+            ),
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh sync status',
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        children: [
+          _SurfaceCard(
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD7F5E3),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.cloud_done_outlined,
+                    color: Color(0xFF15803D),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'All records synced',
+                        style: TextStyle(
+                          color: Color(0xFF0A231C),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      SizedBox(height: 3),
+                      Text(
+                        'Last sync: Today, 09:42 AM',
+                        style: TextStyle(
+                          color: EcoTraceColors.muted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const _SectionTitle('Verification feedback'),
+          const _SyncRecord(
+            icon: Icons.check_circle_outline,
+            title: 'T-104 verification',
+            detail: 'Server accepted · 2 minutes ago',
+            color: Color(0xFF15803D),
+            background: Color(0xFFD7F5E3),
+          ),
+          const _SyncRecord(
+            icon: Icons.sync_rounded,
+            title: 'T-109 verification',
+            detail: 'Queued for upload · offline draft',
+            color: Color(0xFFD97706),
+            background: Color(0xFFFEF3C7),
+          ),
+          const _SyncRecord(
+            icon: Icons.history_rounded,
+            title: 'T-097 audit feedback',
+            detail: 'Reviewed by audit team · yesterday',
+            color: Color(0xFF0284C7),
+            background: Color(0xFFE0F2FE),
+          ),
+          const _SectionTitle('Audit history'),
+          const _SurfaceCard(
+            child: Column(
+              children: [
+                _AuditRow(
+                  date: 'Sep 6 · 09:40',
+                  text: 'DBH measurement submitted',
+                  staff: 'Monitoring staff · T-104',
+                ),
+                _AuditRow(
+                  date: 'Sep 5 · 16:12',
+                  text: 'Plant status updated',
+                  staff: 'Audit review · T-097',
+                ),
+                _AuditRow(
+                  date: 'Sep 4 · 11:28',
+                  text: 'Incident report resolved',
+                  staff: 'Field staff · T-088',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SyncRecord extends StatelessWidget {
+  const _SyncRecord({
+    required this.icon,
+    required this.title,
+    required this.detail,
+    required this.color,
+    required this.background,
+  });
+
+  final IconData icon;
+  final String title;
+  final String detail;
+  final Color color;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) => _SurfaceCard(
+    child: Row(
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Color(0xFF0A231C),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                detail,
+                style: const TextStyle(
+                  color: EcoTraceColors.muted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _AuditRow extends StatelessWidget {
+  const _AuditRow({
+    required this.date,
+    required this.text,
+    required this.staff,
+  });
+
+  final String date;
+  final String text;
+  final String staff;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 14),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(
+          Icons.timeline_rounded,
+          color: EcoTraceColors.forest,
+          size: 18,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                date,
+                style: const TextStyle(
+                  color: Color(0xFF7A9185),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                text,
+                style: const TextStyle(
+                  color: Color(0xFF0A231C),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                staff,
+                style: const TextStyle(
+                  color: EcoTraceColors.muted,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ManualEntrySheet extends StatefulWidget {
+  const _ManualEntrySheet();
+
+  @override
+  State<_ManualEntrySheet> createState() => _ManualEntrySheetState();
+}
+
+class _ManualEntrySheetState extends State<_ManualEntrySheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _treeTag = TextEditingController();
+  final _dbh = TextEditingController();
+  final _crownDimension = TextEditingController();
+  final _notes = TextEditingController();
+  String _plantStatus = 'Healthy';
+  String _measurementSource = 'Manual';
+
+  @override
+  void dispose() {
+    _treeTag.dispose();
+    _dbh.dispose();
+    _crownDimension.dispose();
+    _notes.dispose();
+    super.dispose();
+  }
+
+  String? _required(String? value, String label) =>
+      value == null || value.trim().isEmpty ? '$label is required' : null;
+
+  String? _measurement(String? value, String label) {
+    final required = _required(value, label);
+    if (required != null) return required;
+    final number = double.tryParse(value!.trim());
+    if (number == null || number <= 0) return 'Enter a value greater than 0';
+    return null;
+  }
+
+  void _saveDraft() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          'Verification draft for ${_treeTag.text.trim()} saved locally.',
+        ),
+        backgroundColor: EcoTraceColors.forest,
+      ),
+    );
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.fromLTRB(
+      20,
+      18,
+      20,
+      MediaQuery.viewInsetsOf(context).bottom + 20,
+    ),
+    child: Form(
+      key: _formKey,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD5DFD8),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Manual tree verification',
+              style: TextStyle(
+                color: Color(0xFF0A231C),
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _treeTag,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'Tree tag',
+                hintText: 'e.g., T-104',
+              ),
+              validator: (value) => _required(value, 'Tree tag'),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _dbh,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'DBH (cm)',
+                hintText: 'Enter measured diameter',
+              ),
+              validator: (value) => _measurement(value, 'DBH'),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _crownDimension,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'Crown dimension (m)',
+                hintText: 'Enter measured crown',
+              ),
+              validator: (value) => _measurement(value, 'Crown dimension'),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _plantStatus,
+              decoration: const InputDecoration(labelText: 'Plant status'),
+              items: const [
+                DropdownMenuItem(value: 'Healthy', child: Text('Healthy')),
+                DropdownMenuItem(value: 'At risk', child: Text('At risk')),
+                DropdownMenuItem(value: 'Damaged', child: Text('Damaged')),
+                DropdownMenuItem(value: 'Missing', child: Text('Missing')),
+                DropdownMenuItem(value: 'Unknown', child: Text('Unknown')),
+              ],
+              onChanged: (value) =>
+                  setState(() => _plantStatus = value ?? 'Healthy'),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _measurementSource,
+              decoration: const InputDecoration(
+                labelText: 'Measurement source',
+              ),
+              items: const [
+                DropdownMenuItem(value: 'Automated', child: Text('Automated')),
+                DropdownMenuItem(value: 'Manual', child: Text('Manual')),
+                DropdownMenuItem(
+                  value: 'Corrected',
+                  child: Text('Corrected manually'),
+                ),
+              ],
+              onChanged: (value) =>
+                  setState(() => _measurementSource = value ?? 'Manual'),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _notes,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Notes',
+                hintText: 'Optional field observations',
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: _saveDraft,
+              style: FilledButton.styleFrom(
+                backgroundColor: EcoTraceColors.forest,
+                minimumSize: const Size.fromHeight(50),
+              ),
+              child: const Text('Save verification draft'),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
