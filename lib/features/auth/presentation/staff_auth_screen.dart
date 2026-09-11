@@ -1,3 +1,6 @@
+import 'dart:math';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -98,189 +101,377 @@ class _StaffAuthScreenState extends State<StaffAuthScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: DecoratedBox(
-        decoration: const BoxDecoration(color: EcoTraceColors.forestDeep),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _Entrance(
-                animation: _headerAnim,
-                slide: 0.03,
-                child: const _AuthHeader(),
-              ),
-              Expanded(
-                child: _Entrance(
-                  animation: _cardAnim,
-                  slide: 0.03,
-                  scale: 1.02,
-                  child: Container(
-                    width: double.infinity,
-                    decoration: const BoxDecoration(
-                      color: EcoTraceColors.canvas,
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(30),
-                      ),
-                    ),
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(30, 30, 30, 40),
-                      child: Form(
-                        key: _formKey,
-                        child: _Entrance(
-                          animation: _formAnim,
-                          slide: 0.03,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _AuthTabs(
-                                loginMode: _loginMode,
-                                onChanged: (value) =>
-                                    setState(() => _loginMode = value),
-                              ),
-                              const SizedBox(height: 28),
-                              if (!_loginMode) ...[
-                                const _FieldLabel('Staff ID'),
-                                TextFormField(
-                                  controller: _staffId,
-                                  textInputAction: TextInputAction.next,
-                                  decoration: const InputDecoration(
-                                    hintText: 'e.g., STF-00042',
-                                  ),
-                                  validator: (value) =>
-                                      _required(value, 'Staff ID'),
-                                ),
-                                const SizedBox(height: 18),
-                              ],
-                              const _FieldLabel('Staff number'),
-                              TextFormField(
-                                controller: _staffNumber,
-                                keyboardType: TextInputType.number,
-                                textInputAction: TextInputAction.next,
-                                decoration: const InputDecoration(
-                                  hintText: 'e.g., 239038',
-                                ),
-                                validator: (value) =>
-                                    _required(value, 'Staff number'),
-                              ),
-                              const SizedBox(height: 6),
-                              const Text(
-                                'Assigned monitoring personnel number',
-                                style: TextStyle(
-                                  color: EcoTraceColors.muted,
-                                  fontSize: 11,
-                                ),
-                              ),
-                              if (!_loginMode) ...[
-                                const SizedBox(height: 18),
-                                const _FieldLabel('Staff type'),
-                                DropdownButtonFormField<StaffType>(
-                                  initialValue: _staffType,
-                                  decoration: const InputDecoration(),
-                                  items: StaffType.values
-                                      .map(
-                                        (type) => DropdownMenuItem(
-                                          value: type,
-                                          child: Text(type.label),
-                                        ),
-                                      )
-                                      .toList(),
-                                  onChanged: (value) => setState(
-                                    () =>
-                                        _staffType = value ?? StaffType.intern,
-                                  ),
-                                ),
-                              ],
-                              const SizedBox(height: 18),
-                              const _FieldLabel('Password'),
-                              TextFormField(
-                                controller: _password,
-                                obscureText: _obscurePassword,
-                                textInputAction: _loginMode
-                                    ? TextInputAction.done
-                                    : TextInputAction.next,
-                                decoration: InputDecoration(
-                                  hintText: 'Enter secure password',
-                                  suffixIcon: IconButton(
-                                    tooltip: _obscurePassword
-                                        ? 'Show password'
-                                        : 'Hide password',
-                                    onPressed: () => setState(
-                                      () =>
-                                          _obscurePassword = !_obscurePassword,
-                                    ),
-                                    icon: Icon(
-                                      _obscurePassword
-                                          ? Icons.visibility_outlined
-                                          : Icons.visibility_off_outlined,
-                                    ),
-                                  ),
-                                ),
-                                validator: (value) {
-                                  final required = _required(value, 'Password');
-                                  if (required != null) return required;
-                                  return value!.length < 8
-                                      ? 'Use at least 8 characters'
-                                      : null;
-                                },
-                                onFieldSubmitted: (_) => _submit(),
-                              ),
-                              if (!_loginMode) ...[
-                                const SizedBox(height: 18),
-                                const _FieldLabel('Confirm password'),
-                                TextFormField(
-                                  controller: _confirmation,
-                                  obscureText: _obscurePassword,
-                                  decoration: const InputDecoration(
-                                    hintText: 'Re-enter secure password',
-                                  ),
-                                  validator: (value) => value != _password.text
-                                      ? 'Passwords do not match'
-                                      : _required(value, 'Confirmation'),
-                                ),
-                              ],
-                              const SizedBox(height: 26),
-                              FilledButton(
-                                onPressed: _submit,
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: EcoTraceColors.forest,
-                                  foregroundColor: Colors.white,
-                                  minimumSize: const Size.fromHeight(54),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  textStyle: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                child: Text(
-                                  _loginMode
-                                      ? 'Secure login'
-                                      : 'Create staff profile',
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              Text(
-                                _loginMode
-                                    ? 'Use your assigned staff number and password to access field verification.'
-                                    : 'New profiles are linked to the MONITORING_STAFF audit record.',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: EcoTraceColors.muted,
-                                  fontSize: 12,
-                                  height: 1.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Full-bleed canopy atmosphere behind the auth form.
+          const _CanopyBackdrop(),
+          SafeArea(
+            child: Column(
+              children: [
+                // ── Brand bar ─────────────────────────────────────
+                _Entrance(
+                  animation: _headerAnim,
+                  slide: 0.04,
+                  child: const _CompactHeader(),
                 ),
-              ),
-            ],
+
+                // ── Glass form card ───────────────────────────────
+                Expanded(
+                  child: _Entrance(
+                    animation: _cardAnim,
+                    slide: 0.04,
+                    scale: 1.015,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(28),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                          child: Container(
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(28),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.35),
+                                width: 1,
+                              ),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x18000000),
+                                  blurRadius: 48,
+                                  offset: Offset(0, 16),
+                                ),
+                              ],
+                            ),
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.fromLTRB(
+                                26,
+                                32,
+                                26,
+                                28,
+                              ),
+                              child: Form(
+                                key: _formKey,
+                                child: _Entrance(
+                                  animation: _formAnim,
+                                  slide: 0.04,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      AnimatedSwitcher(
+                                        duration: const Duration(
+                                          milliseconds: 280,
+                                        ),
+                                        switchInCurve: Curves.easeOutCubic,
+                                        switchOutCurve: Curves.easeInCubic,
+                                        child: _FormHeading(
+                                          key: ValueKey(_loginMode),
+                                          loginMode: _loginMode,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 26),
+                                      _SegmentedControl(
+                                        loginMode: _loginMode,
+                                        onChanged: (value) =>
+                                            setState(() => _loginMode = value),
+                                      ),
+                                      const SizedBox(height: 28),
+                                      AnimatedSwitcher(
+                                        duration: const Duration(
+                                          milliseconds: 260,
+                                        ),
+                                        switchInCurve: Curves.easeOutCubic,
+                                        switchOutCurve: Curves.easeInCubic,
+                                        transitionBuilder: (child, anim) =>
+                                            FadeTransition(
+                                              opacity: anim,
+                                              child: SlideTransition(
+                                                position: Tween<Offset>(
+                                                  begin: const Offset(0, -0.04),
+                                                  end: Offset.zero,
+                                                ).animate(anim),
+                                                child: child,
+                                              ),
+                                            ),
+                                        child: _loginMode
+                                            ? const SizedBox.shrink(
+                                                key: ValueKey('login'),
+                                              )
+                                            : Column(
+                                                key: const ValueKey('signup'),
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.stretch,
+                                                children: [
+                                                  const SizedBox(height: 22),
+                                                  const _FieldLabel('Staff ID'),
+                                                  TextFormField(
+                                                    controller: _staffId,
+                                                    textInputAction:
+                                                        TextInputAction.next,
+                                                    decoration: _fieldDeco(
+                                                      hint: 'e.g. STF-00042',
+                                                      icon: Icons
+                                                          .fingerprint_rounded,
+                                                    ),
+                                                    validator: (value) =>
+                                                        _required(
+                                                          value,
+                                                          'Staff ID',
+                                                        ),
+                                                  ),
+                                                  const SizedBox(height: 22),
+                                                ],
+                                              ),
+                                      ),
+                                      const _FieldLabel('Staff number'),
+                                      TextFormField(
+                                        controller: _staffNumber,
+                                        keyboardType: TextInputType.number,
+                                        textInputAction: TextInputAction.next,
+                                        decoration: _fieldDeco(
+                                          hint: 'Enter your assigned number',
+                                          icon: Icons.badge_outlined,
+                                        ),
+                                        validator: (value) =>
+                                            _required(value, 'Staff number'),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 4),
+                                        child: Text(
+                                          'Assigned monitoring personnel number',
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.55,
+                                            ),
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ),
+                                      AnimatedSwitcher(
+                                        duration: const Duration(
+                                          milliseconds: 260,
+                                        ),
+                                        switchInCurve: Curves.easeOutCubic,
+                                        switchOutCurve: Curves.easeInCubic,
+                                        transitionBuilder: (child, anim) =>
+                                            FadeTransition(
+                                              opacity: anim,
+                                              child: SlideTransition(
+                                                position: Tween<Offset>(
+                                                  begin: const Offset(0, -0.04),
+                                                  end: Offset.zero,
+                                                ).animate(anim),
+                                                child: child,
+                                              ),
+                                            ),
+                                        child: _loginMode
+                                            ? const SizedBox.shrink(
+                                                key: ValueKey('login'),
+                                              )
+                                            : Column(
+                                                key: const ValueKey('signup'),
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.stretch,
+                                                children: [
+                                                  const SizedBox(height: 22),
+                                                  const _FieldLabel(
+                                                    'Staff type',
+                                                  ),
+                                                  _StaffTypeSelector(
+                                                    value: _staffType,
+                                                    onChanged: (t) => setState(
+                                                      () => _staffType = t,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 22),
+                                                ],
+                                              ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      const _FieldLabel('Password'),
+                                      TextFormField(
+                                        controller: _password,
+                                        obscureText: _obscurePassword,
+                                        textInputAction: _loginMode
+                                            ? TextInputAction.done
+                                            : TextInputAction.next,
+                                        decoration: _fieldDeco(
+                                          hint: 'Enter your password',
+                                          icon: Icons.lock_outline_rounded,
+                                          suffix: IconButton(
+                                            tooltip: _obscurePassword
+                                                ? 'Show password'
+                                                : 'Hide password',
+                                            onPressed: () => setState(
+                                              () => _obscurePassword =
+                                                  !_obscurePassword,
+                                            ),
+                                            icon: Icon(
+                                              _obscurePassword
+                                                  ? Icons.visibility_outlined
+                                                  : Icons
+                                                        .visibility_off_outlined,
+                                              color: Colors.white.withValues(
+                                                alpha: 0.7,
+                                              ),
+                                              size: 22,
+                                            ),
+                                          ),
+                                        ),
+                                        validator: (value) {
+                                          final r = _required(
+                                            value,
+                                            'Password',
+                                          );
+                                          if (r != null) return r;
+                                          return value!.length < 8
+                                              ? 'Use at least 8 characters'
+                                              : null;
+                                        },
+                                        onFieldSubmitted: (_) => _submit(),
+                                      ),
+                                      AnimatedSwitcher(
+                                        duration: const Duration(
+                                          milliseconds: 260,
+                                        ),
+                                        switchInCurve: Curves.easeOutCubic,
+                                        switchOutCurve: Curves.easeInCubic,
+                                        transitionBuilder: (child, anim) =>
+                                            FadeTransition(
+                                              opacity: anim,
+                                              child: SlideTransition(
+                                                position: Tween<Offset>(
+                                                  begin: const Offset(0, -0.04),
+                                                  end: Offset.zero,
+                                                ).animate(anim),
+                                                child: child,
+                                              ),
+                                            ),
+                                        child: _loginMode
+                                            ? const SizedBox.shrink(
+                                                key: ValueKey('login'),
+                                              )
+                                            : Column(
+                                                key: const ValueKey('signup'),
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.stretch,
+                                                children: [
+                                                  const SizedBox(height: 22),
+                                                  const _FieldLabel(
+                                                    'Confirm password',
+                                                  ),
+                                                  TextFormField(
+                                                    controller: _confirmation,
+                                                    obscureText:
+                                                        _obscurePassword,
+                                                    decoration: _fieldDeco(
+                                                      hint: 'Re-enter password',
+                                                      icon: Icons
+                                                          .verified_user_outlined,
+                                                    ),
+                                                    validator: (value) =>
+                                                        value != _password.text
+                                                        ? 'Passwords do not match'
+                                                        : _required(
+                                                            value,
+                                                            'Confirmation',
+                                                          ),
+                                                  ),
+                                                ],
+                                              ),
+                                      ),
+                                      const SizedBox(height: 32),
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                            colors: [
+                                              EcoTraceColors.forest,
+                                              EcoTraceColors.forestDeep,
+                                            ],
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                          boxShadow: const [
+                                            BoxShadow(
+                                              color: Color(0x4D0B1F17),
+                                              blurRadius: 18,
+                                              offset: Offset(0, 8),
+                                            ),
+                                          ],
+                                        ),
+                                        child: FilledButton(
+                                          onPressed: _submit,
+                                          style: FilledButton.styleFrom(
+                                            backgroundColor: Colors.transparent,
+                                            foregroundColor: Colors.white,
+                                            elevation: 0,
+                                            shadowColor: Colors.transparent,
+                                            minimumSize: const Size.fromHeight(
+                                              56,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                            ),
+                                            textStyle: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 0.4,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                _loginMode
+                                                    ? 'Secure login'
+                                                    : 'Create staff profile',
+                                              ),
+                                              const SizedBox(width: 8),
+                                              const Icon(
+                                                Icons.arrow_forward_rounded,
+                                                size: 20,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 18),
+                                      Text(
+                                        _loginMode
+                                            ? 'Use your assigned staff number and password to access field verification.'
+                                            : 'New profiles are linked to the MONITORING_STAFF audit record.',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.50,
+                                          ),
+                                          fontSize: 12,
+                                          height: 1.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ), // BackdropFilter
+                      ), // ClipRRect
+                    ), // Padding
+                  ), // _Entrance (card)
+                ), // Expanded
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -321,76 +512,56 @@ class _Entrance extends StatelessWidget {
   }
 }
 
-class _AuthHeader extends StatelessWidget {
-  const _AuthHeader();
+/// Full-bleed atmospheric backdrop that reproduces the reference image's
+/// aerial forest canopy: a deep green base, a sunlit lime glow upper-left,
+/// subtle foliage texture, and a soft vignette keeping the form dominant.
+class _CanopyBackdrop extends StatelessWidget {
+  const _CanopyBackdrop();
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(30, 36, 30, 58),
-      child: Column(
+    return ColoredBox(
+      color: EcoTraceColors.canopy,
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          Container(
-            width: 80,
-            height: 80,
-            alignment: Alignment.center,
+          // Sunlit crown glow, displaced upper-centre-left like the reference.
+          const DecoratedBox(
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: EcoTraceColors.lemon.withValues(alpha: 0.15),
-              border: Border.all(
-                color: EcoTraceColors.lemon.withValues(alpha: 0.4),
-                width: 3,
-              ),
-            ),
-            child: const Text(
-              'FIELD\nTEAM',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: EcoTraceColors.lemon,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                height: 1.3,
+              gradient: RadialGradient(
+                center: Alignment(-0.35, -0.62),
+                radius: 1.05,
+                colors: [
+                  Color(0x8C9CDD6E),
+                  Color(0x264C8A47),
+                  Colors.transparent,
+                ],
+                stops: [0.0, 0.42, 0.9],
               ),
             ),
           ),
-          const SizedBox(height: 20),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: EcoTraceColors.lemon,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.layers_outlined,
-                    color: EcoTraceColors.forest,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                const Text(
-                  'EcoTrace',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
+          // Secondary soft glow low-left, hinting at distant sunlight.
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment(-0.78, 0.52),
+                radius: 0.95,
+                colors: [Color(0x2E4C8A47), Colors.transparent],
+                stops: [0.0, 1.0],
+              ),
             ),
           ),
-          const SizedBox(height: 12),
-          const Text(
-            'Environmental Tracking System',
-            style: TextStyle(
-              color: EcoTraceColors.softText,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+          // Quiet foliage texture: dark crowns and sparse lime sun-glints.
+          const CustomPaint(painter: _CanopyPainter()),
+          // Gentle vignette for depth.
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment(0, -0.3),
+                radius: 1.35,
+                colors: [Colors.transparent, Color(0x661E0904)],
+                stops: [0.55, 1.0],
+              ),
             ),
           ),
         ],
@@ -399,59 +570,194 @@ class _AuthHeader extends StatelessWidget {
   }
 }
 
-class _AuthTabs extends StatelessWidget {
-  const _AuthTabs({required this.loginMode, required this.onChanged});
+/// Seeded, stable foliage texture drawn behind the auth form. Soft tree-crown
+/// mounds and sparse lime glints mimic sunlit canopy without looking noisy.
+class _CanopyPainter extends CustomPainter {
+  const _CanopyPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rng = Random(1407);
+
+    // Soft dark mounds — individual tree crowns filling the upper field.
+    final mound = Paint()..color = const Color(0x12000703);
+    for (var i = 0; i < 44; i++) {
+      final cx = rng.nextDouble() * size.width;
+      final cy = rng.nextDouble() * size.height * 0.70;
+      final radius = 48 + rng.nextDouble() * 104;
+      canvas.drawCircle(Offset(cx, cy), radius, mound);
+    }
+
+    // Pale-green crowns clustered upper-centre-left (the light cluster).
+    final pale = Paint()..color = const Color(0x244C8A47);
+    for (var i = 0; i < 16; i++) {
+      final cx = size.width * (0.08 + rng.nextDouble() * 0.36);
+      final cy = size.height * (0.08 + rng.nextDouble() * 0.34);
+      final radius = 44 + rng.nextDouble() * 72;
+      canvas.drawCircle(Offset(cx, cy), radius, pale);
+    }
+
+    // Soft lime glints scattered like sunlight reflecting on leaves.
+    final glint = Paint()..color = const Color(0x33B5EA87);
+    for (var i = 0; i < 84; i++) {
+      final cx = rng.nextDouble() * size.width;
+      final cy = rng.nextDouble() * size.height * 0.76;
+      canvas.drawCircle(Offset(cx, cy), 1.0 + rng.nextDouble() * 2.4, glint);
+    }
+
+    // A few firmer lime dots for texture detail.
+    final dot = Paint()..color = const Color(0x4DB5EA87);
+    for (var i = 0; i < 22; i++) {
+      final cx = rng.nextDouble() * size.width;
+      final cy = rng.nextDouble() * size.height * 0.72;
+      canvas.drawCircle(Offset(cx, cy), 1.0 + rng.nextDouble() * 1.5, dot);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CanopyPainter oldDelegate) => false;
+}
+
+class _CompactHeader extends StatelessWidget {
+  const _CompactHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 18, 24, 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: const Color(0x22FFFFFF),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.20),
+                width: 1,
+              ),
+            ),
+            child: Image.asset(
+              'lib/assets/icons/ecotrace_icon.png',
+              width: 48,
+              height: 48,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Text(
+            'EcoTrace',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.4,
+              shadows: [
+                Shadow(
+                  color: Color(0x55000000),
+                  blurRadius: 8,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SegmentedControl extends StatelessWidget {
+  const _SegmentedControl({required this.loginMode, required this.onChanged});
 
   final bool loginMode;
   final ValueChanged<bool> onChanged;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(
-        child: _TabButton(
-          label: 'Login',
-          active: loginMode,
-          onPressed: () => onChanged(true),
-        ),
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
       ),
-      const SizedBox(width: 12),
-      Expanded(
-        child: _TabButton(
-          label: 'Staff sign up',
-          active: !loginMode,
-          onPressed: () => onChanged(false),
-        ),
+      padding: const EdgeInsets.all(4),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Stack(
+            children: [
+              // Sliding white indicator
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOutCubic,
+                left: loginMode ? 0 : constraints.maxWidth / 2,
+                top: 0,
+                width: constraints.maxWidth / 2,
+                height: constraints.maxHeight,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x22000000),
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Labels
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => onChanged(true),
+                      behavior: HitTestBehavior.opaque,
+                      child: Center(
+                        child: Text(
+                          'Login',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: loginMode
+                                ? EcoTraceColors.forestDark
+                                : Colors.white.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => onChanged(false),
+                      behavior: HitTestBehavior.opaque,
+                      child: Center(
+                        child: Text(
+                          'Staff sign up',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: !loginMode
+                                ? EcoTraceColors.forestDark
+                                : Colors.white.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
       ),
-    ],
-  );
-}
-
-class _TabButton extends StatelessWidget {
-  const _TabButton({
-    required this.label,
-    required this.active,
-    required this.onPressed,
-  });
-
-  final String label;
-  final bool active;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) => TextButton(
-    onPressed: onPressed,
-    style: TextButton.styleFrom(
-      backgroundColor: active ? EcoTraceColors.forest : const Color(0xFFE8F0EC),
-      foregroundColor: active ? Colors.white : EcoTraceColors.muted,
-      padding: const EdgeInsets.symmetric(vertical: 13),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ),
-    child: Text(
-      label,
-      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-    ),
-  );
+    );
+  }
 }
 
 class _FieldLabel extends StatelessWidget {
@@ -466,12 +772,175 @@ class _FieldLabel extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: Text(
         '$label *',
-        style: const TextStyle(
-          color: Color(0xFF0A231C),
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.80),
           fontSize: 13,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
         ),
       ),
     ),
   );
+}
+
+/// Modern heading that orients the user to the active auth mode.
+class _FormHeading extends StatelessWidget {
+  const _FormHeading({super.key, required this.loginMode});
+
+  final bool loginMode;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          loginMode ? 'Welcome back' : 'Create your account',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.2,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          loginMode
+              ? 'Sign in to continue monitoring'
+              : 'Join the field verification team',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.65),
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            height: 1.4,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Modern glass-tinted input decoration for the frosted card.
+InputDecoration _fieldDeco({
+  required String hint,
+  required IconData icon,
+  Widget? suffix,
+}) {
+  return InputDecoration(
+    hintText: hint,
+    prefixIcon: Icon(
+      icon,
+      color: Colors.white.withValues(alpha: 0.55),
+      size: 20,
+    ),
+    suffixIcon: suffix,
+    filled: true,
+    fillColor: Colors.white.withValues(alpha: 0.10),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+    hintStyle: TextStyle(
+      color: Colors.white.withValues(alpha: 0.40),
+      fontSize: 14,
+    ),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide(
+        color: Colors.white.withValues(alpha: 0.15),
+        width: 1,
+      ),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide(
+        color: Colors.white.withValues(alpha: 0.15),
+        width: 1,
+      ),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: const BorderSide(color: EcoTraceColors.leaf, width: 1.8),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: const BorderSide(color: EcoTraceColors.error, width: 1),
+    ),
+    focusedErrorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: const BorderSide(color: EcoTraceColors.error, width: 1.8),
+    ),
+    errorStyle: const TextStyle(color: EcoTraceColors.error, fontSize: 12),
+  );
+}
+
+/// Modern segmented selector for staff type with sliding indicator.
+class _StaffTypeSelector extends StatelessWidget {
+  const _StaffTypeSelector({required this.value, required this.onChanged});
+
+  final StaffType value;
+  final ValueChanged<StaffType> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = StaffType.values;
+    final idx = items.indexOf(value);
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Stack(
+            children: [
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOutCubic,
+                left: constraints.maxWidth / items.length * idx,
+                top: 0,
+                width: constraints.maxWidth / items.length,
+                height: constraints.maxHeight,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x22000000),
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Row(
+                children: items
+                    .map(
+                      (t) => Expanded(
+                        child: GestureDetector(
+                          onTap: () => onChanged(t),
+                          behavior: HitTestBehavior.opaque,
+                          child: Center(
+                            child: Text(
+                              t.label,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: t == value
+                                    ? EcoTraceColors.forestDark
+                                    : Colors.white.withValues(alpha: 0.6),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 }

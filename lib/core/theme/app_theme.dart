@@ -4,6 +4,9 @@ abstract final class EcoTraceColors {
   static const forest = Color(0xFF0D382C);
   static const forestDeep = Color(0xFF0B1F17);
   static const forestDark = Color(0xFF0A2A20);
+  static const canopy = Color(0xFF03461F);
+  static const leaf = Color(0xFFB5EA87);
+  static const leafDeep = Color(0xFF9CDD6E);
   static const lemon = Color(0xFFFFD600);
   static const canvas = Color(0xFFF4F7F5);
   static const field = Color(0xFFFFFFFF);
