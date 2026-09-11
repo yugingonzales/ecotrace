@@ -29,7 +29,7 @@ class NavItem extends StatelessWidget {
       onTap: () => onSelected(index),
       borderRadius: BorderRadius.circular(16),
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: compact ? 2 : 8, vertical: 2),
+        padding: EdgeInsets.symmetric(horizontal: compact ? 5 : 12, vertical: 2),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

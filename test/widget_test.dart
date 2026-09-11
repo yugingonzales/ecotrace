@@ -12,12 +12,20 @@ import 'package:ecotrace/main.dart';
 import 'package:ecotrace/features/home/presentation/app_shell.dart';
 
 void main() {
-  testWidgets('renders the staff authentication entry screen', (
+  testWidgets('renders the animated splash then auth entry screen', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const EcoTraceApp());
 
+    // Splash screen is shown first with its branding.
     expect(find.text('EcoTrace'), findsOneWidget);
+    expect(find.text('Environmental Tracking System'), findsOneWidget);
+
+    // Advance through the staggered animation (~3.1s) and the route fade.
+    await tester.pump(const Duration(milliseconds: 3200));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle(const Duration(milliseconds: 100));
+
     expect(find.text('Staff number *'), findsOneWidget);
     expect(find.text('Secure login'), findsOneWidget);
   });
@@ -85,6 +93,11 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(const EcoTraceApp());
+
+    // Skip the splash sequence to reach the auth form.
+    await tester.pump(const Duration(milliseconds: 3200));
+    await tester.pump(const Duration(milliseconds: 600));
+
     expect(find.text('Secure login'), findsOneWidget);
     await tester.ensureVisible(find.byIcon(Icons.visibility_outlined));
     await tester.tap(find.byIcon(Icons.visibility_outlined));

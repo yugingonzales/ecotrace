@@ -27,7 +27,7 @@ class BottomNavigation extends StatelessWidget {
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 340;
           return Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
                 child: NavItem(
@@ -39,6 +39,7 @@ class BottomNavigation extends StatelessWidget {
                   compact: compact,
                 ),
               ),
+              const SizedBox(width: 4),
               Expanded(
                 child: NavItem(
                   index: 1,
@@ -49,6 +50,7 @@ class BottomNavigation extends StatelessWidget {
                   compact: compact,
                 ),
               ),
+              const SizedBox(width: 4),
               Transform.translate(
                 offset: Offset(0, compact ? -7 : -11),
                 child: SizedBox(
@@ -67,6 +69,7 @@ class BottomNavigation extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(width: 4),
               Expanded(
                 child: NavItem(
                   index: 3,
@@ -78,6 +81,7 @@ class BottomNavigation extends StatelessWidget {
                   compact: compact,
                 ),
               ),
+              const SizedBox(width: 4),
               Expanded(
                 child: NavItem(
                   index: 4,

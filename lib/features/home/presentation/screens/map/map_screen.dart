@@ -202,12 +202,12 @@ class _MapScreenState extends State<MapScreen> {
           ),
         ),
         Positioned(
-          top: 16,
+          top: 32,
           left: 16,
           right: 16,
           child: MapHeader(onTreeSelected: _selectTree),
         ),
-        const Positioned(top: 76, right: 16, child: MapLegend()),
+        const Positioned(top: 92, right: 16, child: MapLegend()),
         AnimatedPositioned(
           left: 16,
           right: 16,

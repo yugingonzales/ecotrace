@@ -3,11 +3,21 @@ import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_theme.dart';
 
 class TopBar extends StatelessWidget {
-  const TopBar({super.key, this.onSearch, this.onFilter, this.onCalendar});
+  const TopBar({
+    super.key,
+    this.onSearch,
+    this.onFilter,
+    this.onCalendar,
+    this.edgeOffset = 4,
+  });
 
   final VoidCallback? onSearch;
   final VoidCallback? onFilter;
   final VoidCallback? onCalendar;
+
+  /// Pushes the action buttons closer to the right edge of the screen
+  /// (beyond the header's standard 20px padding).
+  final double edgeOffset;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -39,24 +49,32 @@ class TopBar extends StatelessWidget {
         ),
       ),
       const Spacer(),
-      if (onCalendar != null) ...[
-        _buildActionButton(
-          icon: Icons.calendar_month_rounded,
-          tooltip: 'Calendar',
-          onPressed: onCalendar,
+      Transform.translate(
+        offset: Offset(edgeOffset, 0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (onCalendar != null) ...[
+              _buildActionButton(
+                icon: Icons.calendar_month_rounded,
+                tooltip: 'Calendar',
+                onPressed: onCalendar,
+              ),
+              const SizedBox(width: 2),
+            ],
+            _buildActionButton(
+              icon: Icons.search_rounded,
+              tooltip: 'Search',
+              onPressed: onSearch,
+            ),
+            const SizedBox(width: 2),
+            _buildActionButton(
+              icon: Icons.tune_rounded,
+              tooltip: 'Filter',
+              onPressed: onFilter,
+            ),
+          ],
         ),
-        const SizedBox(width: 2),
-      ],
-      _buildActionButton(
-        icon: Icons.search_rounded,
-        tooltip: 'Search',
-        onPressed: onSearch,
-      ),
-      const SizedBox(width: 2),
-      _buildActionButton(
-        icon: Icons.tune_rounded,
-        tooltip: 'Filter',
-        onPressed: onFilter,
       ),
     ],
   );
