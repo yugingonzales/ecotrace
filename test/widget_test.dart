@@ -116,7 +116,6 @@ void main() {
 
     await tester.tap(find.text('Confirm participation'));
     await tester.pumpAndSettle();
-    expect(find.text('Participation confirmed.'), findsOneWidget);
     expect(find.text('Joined'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Search'));

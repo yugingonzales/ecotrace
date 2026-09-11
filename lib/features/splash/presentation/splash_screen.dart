@@ -12,17 +12,27 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
+  late final AnimationController _sceneCtrl;
   late final AnimationController _dropCtrl;
   late final AnimationController _scaleCtrl;
   late final AnimationController _textCtrl;
   late final AnimationController _subtitleCtrl;
 
+  late final Animation<double> _sceneAnim;
   late final Animation<double> _dropAnim;
   late final Animation<double> _scaleAnim;
 
   @override
   void initState() {
     super.initState();
+
+    // Whole scene dissolves in from the native splash background (350ms).
+    _sceneCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    _sceneAnim = CurvedAnimation(parent: _sceneCtrl, curve: Curves.easeInCubic);
+    _sceneCtrl.forward();
 
     // Icon drops in with elastic bounce (700ms)
     _dropCtrl = AnimationController(
@@ -45,7 +55,7 @@ class _SplashScreenState extends State<SplashScreen>
     );
     _subtitleCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 400),
     );
 
     _startSequence();
@@ -53,7 +63,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _startSequence() async {
     try {
-      await Future.delayed(const Duration(milliseconds: 300));
+      await Future.delayed(const Duration(milliseconds: 150));
       if (!mounted) return;
       _dropCtrl.forward();
 
@@ -61,7 +71,7 @@ class _SplashScreenState extends State<SplashScreen>
       if (!mounted) return;
       _scaleCtrl.forward();
 
-      await Future.delayed(const Duration(milliseconds: 800));
+      await Future.delayed(const Duration(milliseconds: 650));
       if (!mounted) return;
       _textCtrl.forward();
 
@@ -70,9 +80,10 @@ class _SplashScreenState extends State<SplashScreen>
       _subtitleCtrl.forward();
 
       // Hold then transition
-      await Future.delayed(const Duration(milliseconds: 1000));
+      await Future.delayed(const Duration(milliseconds: 950));
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(_fadeRoute(const StaffAuthScreen()));
+      Navigator.of(context)
+          .pushReplacement(_smoothRoute(const StaffAuthScreen()));
     } catch (_) {
       // Widget disposed mid-sequence; abort silently.
     }
@@ -80,6 +91,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
+    _sceneCtrl.dispose();
     _dropCtrl.dispose();
     _scaleCtrl.dispose();
     _textCtrl.dispose();
@@ -94,15 +106,18 @@ class _SplashScreenState extends State<SplashScreen>
         decoration: const BoxDecoration(color: EcoTraceColors.forestDeep),
         child: SafeArea(
           child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildIcon(),
-                const SizedBox(height: 32),
-                _buildTitle(),
-                const SizedBox(height: 10),
-                _buildSubtitle(),
-              ],
+            child: FadeTransition(
+              opacity: _sceneAnim,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildIcon(),
+                  const SizedBox(height: 32),
+                  _buildTitle(),
+                  const SizedBox(height: 10),
+                  _buildSubtitle(),
+                ],
+              ),
             ),
           ),
         ),
@@ -135,10 +150,10 @@ class _SplashScreenState extends State<SplashScreen>
     return FadeTransition(
       opacity: _textCtrl,
       child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0, 0.3),
-          end: Offset.zero,
-        ).animate(_textCtrl),
+        position: Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero)
+            .animate(
+              CurvedAnimation(parent: _textCtrl, curve: Curves.easeOutCubic),
+            ),
         child: const Text(
           'EcoTrace',
           style: TextStyle(
@@ -155,24 +170,51 @@ class _SplashScreenState extends State<SplashScreen>
   Widget _buildSubtitle() {
     return FadeTransition(
       opacity: _subtitleCtrl,
-      child: const Text(
-        'Environmental Tracking System',
-        style: TextStyle(
-          color: EcoTraceColors.softText,
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.5,
+      child: SlideTransition(
+        position: Tween<Offset>(begin: const Offset(0, 0.06), end: Offset.zero)
+            .animate(
+              CurvedAnimation(
+                parent: _subtitleCtrl,
+                curve: Curves.easeOutCubic,
+              ),
+            ),
+        child: const Text(
+          'Environmental Tracking System',
+          style: TextStyle(
+            color: EcoTraceColors.softText,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
         ),
       ),
     );
   }
 
-  static PageRouteBuilder<void> _fadeRoute(Widget page) {
+  // Smooth zoom-fade route: gently scales and lifts the next screen in over a
+  // dark background, so route changes read as one seamless gesture.
+  static PageRouteBuilder<void> _smoothRoute(Widget page) {
     return PageRouteBuilder(
-      transitionDuration: const Duration(milliseconds: 500),
+      transitionDuration: const Duration(milliseconds: 600),
       pageBuilder: (_, _, _) => page,
       transitionsBuilder: (_, animation, _, child) {
-        return FadeTransition(opacity: animation, child: child);
+        final eased = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+        );
+        return FadeTransition(
+          opacity: eased,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.02),
+              end: Offset.zero,
+            ).animate(eased),
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.97, end: 1.0).animate(eased),
+              child: child,
+            ),
+          ),
+        );
       },
     );
   }

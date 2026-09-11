@@ -11,7 +11,8 @@ class StaffAuthScreen extends StatefulWidget {
   State<StaffAuthScreen> createState() => _StaffAuthScreenState();
 }
 
-class _StaffAuthScreenState extends State<StaffAuthScreen> {
+class _StaffAuthScreenState extends State<StaffAuthScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _staffId = TextEditingController();
   final _staffNumber = TextEditingController();
@@ -21,8 +22,37 @@ class _StaffAuthScreenState extends State<StaffAuthScreen> {
   bool _obscurePassword = true;
   StaffType _staffType = StaffType.intern;
 
+  // One-shot staggered entrance: header -> card -> form content.
+  late final AnimationController _entrance;
+  late final Animation<double> _headerAnim;
+  late final Animation<double> _cardAnim;
+  late final Animation<double> _formAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _entrance = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _headerAnim = CurvedAnimation(
+      parent: _entrance,
+      curve: const Interval(0.0, 0.4, curve: Curves.easeOutCubic),
+    );
+    _cardAnim = CurvedAnimation(
+      parent: _entrance,
+      curve: const Interval(0.3, 0.65, curve: Curves.easeOutCubic),
+    );
+    _formAnim = CurvedAnimation(
+      parent: _entrance,
+      curve: const Interval(0.55, 0.95, curve: Curves.easeOutCubic),
+    );
+    _entrance.forward();
+  }
+
   @override
   void dispose() {
+    _entrance.dispose();
     _staffId.dispose();
     _staffNumber.dispose();
     _password.dispose();
@@ -35,8 +65,33 @@ class _StaffAuthScreenState extends State<StaffAuthScreen> {
 
   void _submit() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (_) => const AppShell()),
+    Navigator.of(context).pushReplacement(_smoothRoute(const AppShell()));
+  }
+
+  // Smooth zoom-fade route shared with the splash screen transition.
+  static PageRouteBuilder<void> _smoothRoute(Widget page) {
+    return PageRouteBuilder(
+      transitionDuration: const Duration(milliseconds: 600),
+      pageBuilder: (_, _, _) => page,
+      transitionsBuilder: (_, animation, _, child) {
+        final eased = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+        );
+        return FadeTransition(
+          opacity: eased,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.02),
+              end: Offset.zero,
+            ).animate(eased),
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.97, end: 1.0).animate(eased),
+              child: child,
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -48,161 +103,176 @@ class _StaffAuthScreenState extends State<StaffAuthScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              const _AuthHeader(),
+              _Entrance(
+                animation: _headerAnim,
+                slide: 0.03,
+                child: const _AuthHeader(),
+              ),
               Expanded(
-                child: Container(
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    color: EcoTraceColors.canvas,
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(30),
+                child: _Entrance(
+                  animation: _cardAnim,
+                  slide: 0.03,
+                  scale: 1.02,
+                  child: Container(
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      color: EcoTraceColors.canvas,
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(30),
+                      ),
                     ),
-                  ),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(30, 30, 30, 40),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _AuthTabs(
-                            loginMode: _loginMode,
-                            onChanged: (value) =>
-                                setState(() => _loginMode = value),
-                          ),
-                          const SizedBox(height: 28),
-                          if (!_loginMode) ...[
-                            const _FieldLabel('Staff ID'),
-                            TextFormField(
-                              controller: _staffId,
-                              textInputAction: TextInputAction.next,
-                              decoration: const InputDecoration(
-                                hintText: 'e.g., STF-00042',
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(30, 30, 30, 40),
+                      child: Form(
+                        key: _formKey,
+                        child: _Entrance(
+                          animation: _formAnim,
+                          slide: 0.03,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _AuthTabs(
+                                loginMode: _loginMode,
+                                onChanged: (value) =>
+                                    setState(() => _loginMode = value),
                               ),
-                              validator: (value) =>
-                                  _required(value, 'Staff ID'),
-                            ),
-                            const SizedBox(height: 18),
-                          ],
-                          const _FieldLabel('Staff number'),
-                          TextFormField(
-                            controller: _staffNumber,
-                            keyboardType: TextInputType.number,
-                            textInputAction: TextInputAction.next,
-                            decoration: const InputDecoration(
-                              hintText: 'e.g., 239038',
-                            ),
-                            validator: (value) =>
-                                _required(value, 'Staff number'),
-                          ),
-                          const SizedBox(height: 6),
-                          const Text(
-                            'Assigned monitoring personnel number',
-                            style: TextStyle(
-                              color: EcoTraceColors.muted,
-                              fontSize: 11,
-                            ),
-                          ),
-                          if (!_loginMode) ...[
-                            const SizedBox(height: 18),
-                            const _FieldLabel('Staff type'),
-                            DropdownButtonFormField<StaffType>(
-                              initialValue: _staffType,
-                              decoration: const InputDecoration(),
-                              items: StaffType.values
-                                  .map(
-                                    (type) => DropdownMenuItem(
-                                      value: type,
-                                      child: Text(type.label),
+                              const SizedBox(height: 28),
+                              if (!_loginMode) ...[
+                                const _FieldLabel('Staff ID'),
+                                TextFormField(
+                                  controller: _staffId,
+                                  textInputAction: TextInputAction.next,
+                                  decoration: const InputDecoration(
+                                    hintText: 'e.g., STF-00042',
+                                  ),
+                                  validator: (value) =>
+                                      _required(value, 'Staff ID'),
+                                ),
+                                const SizedBox(height: 18),
+                              ],
+                              const _FieldLabel('Staff number'),
+                              TextFormField(
+                                controller: _staffNumber,
+                                keyboardType: TextInputType.number,
+                                textInputAction: TextInputAction.next,
+                                decoration: const InputDecoration(
+                                  hintText: 'e.g., 239038',
+                                ),
+                                validator: (value) =>
+                                    _required(value, 'Staff number'),
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'Assigned monitoring personnel number',
+                                style: TextStyle(
+                                  color: EcoTraceColors.muted,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              if (!_loginMode) ...[
+                                const SizedBox(height: 18),
+                                const _FieldLabel('Staff type'),
+                                DropdownButtonFormField<StaffType>(
+                                  initialValue: _staffType,
+                                  decoration: const InputDecoration(),
+                                  items: StaffType.values
+                                      .map(
+                                        (type) => DropdownMenuItem(
+                                          value: type,
+                                          child: Text(type.label),
+                                        ),
+                                      )
+                                      .toList(),
+                                  onChanged: (value) => setState(
+                                    () =>
+                                        _staffType = value ?? StaffType.intern,
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 18),
+                              const _FieldLabel('Password'),
+                              TextFormField(
+                                controller: _password,
+                                obscureText: _obscurePassword,
+                                textInputAction: _loginMode
+                                    ? TextInputAction.done
+                                    : TextInputAction.next,
+                                decoration: InputDecoration(
+                                  hintText: 'Enter secure password',
+                                  suffixIcon: IconButton(
+                                    tooltip: _obscurePassword
+                                        ? 'Show password'
+                                        : 'Hide password',
+                                    onPressed: () => setState(
+                                      () =>
+                                          _obscurePassword = !_obscurePassword,
                                     ),
-                                  )
-                                  .toList(),
-                              onChanged: (value) => setState(
-                                () => _staffType = value ?? StaffType.intern,
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 18),
-                          const _FieldLabel('Password'),
-                          TextFormField(
-                            controller: _password,
-                            obscureText: _obscurePassword,
-                            textInputAction: _loginMode
-                                ? TextInputAction.done
-                                : TextInputAction.next,
-                            decoration: InputDecoration(
-                              hintText: 'Enter secure password',
-                              suffixIcon: IconButton(
-                                tooltip: _obscurePassword
-                                    ? 'Show password'
-                                    : 'Hide password',
-                                onPressed: () => setState(
-                                  () => _obscurePassword = !_obscurePassword,
+                                    icon: Icon(
+                                      _obscurePassword
+                                          ? Icons.visibility_outlined
+                                          : Icons.visibility_off_outlined,
+                                    ),
+                                  ),
                                 ),
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_outlined
-                                      : Icons.visibility_off_outlined,
+                                validator: (value) {
+                                  final required = _required(value, 'Password');
+                                  if (required != null) return required;
+                                  return value!.length < 8
+                                      ? 'Use at least 8 characters'
+                                      : null;
+                                },
+                                onFieldSubmitted: (_) => _submit(),
+                              ),
+                              if (!_loginMode) ...[
+                                const SizedBox(height: 18),
+                                const _FieldLabel('Confirm password'),
+                                TextFormField(
+                                  controller: _confirmation,
+                                  obscureText: _obscurePassword,
+                                  decoration: const InputDecoration(
+                                    hintText: 'Re-enter secure password',
+                                  ),
+                                  validator: (value) => value != _password.text
+                                      ? 'Passwords do not match'
+                                      : _required(value, 'Confirmation'),
+                                ),
+                              ],
+                              const SizedBox(height: 26),
+                              FilledButton(
+                                onPressed: _submit,
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: EcoTraceColors.forest,
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size.fromHeight(54),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  textStyle: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                child: Text(
+                                  _loginMode
+                                      ? 'Secure login'
+                                      : 'Create staff profile',
                                 ),
                               ),
-                            ),
-                            validator: (value) {
-                              final required = _required(value, 'Password');
-                              if (required != null) return required;
-                              return value!.length < 8
-                                  ? 'Use at least 8 characters'
-                                  : null;
-                            },
-                            onFieldSubmitted: (_) => _submit(),
-                          ),
-                          if (!_loginMode) ...[
-                            const SizedBox(height: 18),
-                            const _FieldLabel('Confirm password'),
-                            TextFormField(
-                              controller: _confirmation,
-                              obscureText: _obscurePassword,
-                              decoration: const InputDecoration(
-                                hintText: 'Re-enter secure password',
+                              const SizedBox(height: 14),
+                              Text(
+                                _loginMode
+                                    ? 'Use your assigned staff number and password to access field verification.'
+                                    : 'New profiles are linked to the MONITORING_STAFF audit record.',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: EcoTraceColors.muted,
+                                  fontSize: 12,
+                                  height: 1.5,
+                                ),
                               ),
-                              validator: (value) => value != _password.text
-                                  ? 'Passwords do not match'
-                                  : _required(value, 'Confirmation'),
-                            ),
-                          ],
-                          const SizedBox(height: 26),
-                          FilledButton(
-                            onPressed: _submit,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: EcoTraceColors.forest,
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size.fromHeight(54),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              textStyle: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            child: Text(
-                              _loginMode
-                                  ? 'Secure login'
-                                  : 'Create staff profile',
-                            ),
+                            ],
                           ),
-                          const SizedBox(height: 14),
-                          Text(
-                            _loginMode
-                                ? 'Use your assigned staff number and password to access field verification.'
-                                : 'New profiles are linked to the MONITORING_STAFF audit record.',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: EcoTraceColors.muted,
-                              fontSize: 12,
-                              height: 1.5,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -211,6 +281,41 @@ class _StaffAuthScreenState extends State<StaffAuthScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Staggers a widget's entrance: fades it in, lifts it from [slide] fraction
+/// of its own height, and optionally settles its scale towards 1.0.
+class _Entrance extends StatelessWidget {
+  const _Entrance({
+    required this.animation,
+    required this.slide,
+    this.scale,
+    required this.child,
+  });
+
+  final Animation<double> animation;
+  final double slide;
+  final double? scale;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: animation,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: Offset(0, slide),
+          end: Offset.zero,
+        ).animate(animation),
+        child: scale == null
+            ? child
+            : ScaleTransition(
+                scale: Tween<double>(begin: scale, end: 1.0).animate(animation),
+                child: child,
+              ),
       ),
     );
   }
