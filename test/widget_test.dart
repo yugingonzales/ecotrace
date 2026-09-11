@@ -26,8 +26,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
-    expect(find.text('Staff number *'), findsOneWidget);
-    expect(find.text('Secure login'), findsOneWidget);
+    expect(find.text('Username *'), findsOneWidget);
+    expect(find.text('Password *'), findsOneWidget);
+    expect(find.text('Login'), findsOneWidget);
   });
 
   testWidgets('navigates between the reference frontend surfaces', (
@@ -98,7 +99,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 3200));
     await tester.pump(const Duration(milliseconds: 600));
 
-    expect(find.text('Secure login'), findsOneWidget);
+    expect(find.text('Login'), findsOneWidget);
     await tester.ensureVisible(find.byIcon(Icons.visibility_outlined));
     await tester.tap(find.byIcon(Icons.visibility_outlined));
     await tester.pump();
@@ -154,5 +155,39 @@ void main() {
       find.text('Verification draft for T-104 saved locally.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('links between login and sign-up via the bottom prompt', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const EcoTraceApp());
+
+    // Skip the splash sequence to reach the auth form.
+    await tester.pump(const Duration(milliseconds: 3200));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle(const Duration(milliseconds: 100));
+
+    // Defaults to the login view with the sign-up prompt below the card.
+    expect(find.text('Login'), findsOneWidget);
+    expect(find.text('Sign Up.'), findsOneWidget);
+
+    // Navigate into the registration flow.
+    await tester.ensureVisible(find.text('Sign Up.'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sign Up.'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Create staff profile'), findsOneWidget);
+    expect(find.text('Create your account'), findsOneWidget);
+    expect(find.text('Sign In.'), findsOneWidget);
+
+    // And back to login.
+    await tester.ensureVisible(find.text('Sign In.'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sign In.'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Login'), findsOneWidget);
+    expect(find.text('Welcome back'), findsOneWidget);
   });
 }

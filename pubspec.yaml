@@ -59,6 +59,8 @@ flutter:
 
   assets:
     - lib/assets/icons/ecotrace_icon.png
+    - lib/assets/icons/university_logo.jpg
+    - lib/assets/icons/college_logo.jpg
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

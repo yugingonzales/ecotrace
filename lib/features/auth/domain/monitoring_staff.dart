@@ -15,14 +15,18 @@ extension StaffTypeLabel on StaffType {
 
 class MonitoringStaff {
   const MonitoringStaff({
-    required this.staffId,
-    required this.staffNumber,
+    required this.username,
+    required this.firstName,
+    this.middleName,
+    required this.lastName,
     required this.passwordHash,
     required this.staffType,
   });
 
-  final String staffId;
-  final String staffNumber;
+  final String username;
+  final String firstName;
+  final String? middleName;
+  final String lastName;
   final String passwordHash;
   final StaffType staffType;
 }
