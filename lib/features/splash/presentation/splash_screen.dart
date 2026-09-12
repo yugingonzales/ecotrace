@@ -191,29 +191,23 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  // Smooth zoom-fade route: gently scales and lifts the next screen in over a
-  // dark background, so route changes read as one seamless gesture.
+  // Snappy fade route shared with the auth screen transition. Scale and slide
+  // were removed: animating a transform re-rasterizes the heavy glass-blur
+  // surface at a new size every frame, which is what made entry feel laggy.
+  // Opacity is composited at the already-rasterized size, so a short fade is
+  // effectively free.
   static PageRouteBuilder<void> _smoothRoute(Widget page) {
     return PageRouteBuilder(
-      transitionDuration: const Duration(milliseconds: 600),
+      transitionDuration: const Duration(milliseconds: 250),
+      reverseTransitionDuration: const Duration(milliseconds: 200),
       pageBuilder: (_, _, _) => page,
       transitionsBuilder: (_, animation, _, child) {
-        final eased = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutCubic,
-        );
         return FadeTransition(
-          opacity: eased,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 0.02),
-              end: Offset.zero,
-            ).animate(eased),
-            child: ScaleTransition(
-              scale: Tween<double>(begin: 0.97, end: 1.0).animate(eased),
-              child: child,
-            ),
+          opacity: CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
           ),
+          child: child,
         );
       },
     );

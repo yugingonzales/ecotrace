@@ -7,6 +7,47 @@ import '../../../core/theme/app_theme.dart';
 import '../../home/presentation/app_shell.dart';
 import '../domain/monitoring_staff.dart';
 
+// ── Shared look-and-feel constants ────────────────────────────────────────────
+// Hoisted to file scope so every form field reuses the same border / hint /
+// radius instances — stable identities mean zero per-build allocation here,
+// and OutlineInputBorders are not const-constructible with rounded corners.
+
+/// Corner radius of the glass form card and its frosted container.
+const double _glassRadius = 28;
+
+/// Corner radius shared by input fields and the submit button.
+const double _fieldRadius = 16;
+
+/// Idle (enabled / unfocused) field border used by every input in the card.
+final OutlineInputBorder _idleFieldBorder = OutlineInputBorder(
+  borderRadius: BorderRadius.circular(_fieldRadius),
+  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15), width: 1),
+);
+
+/// Focused field border — leaf accent, same width as idle to prevent layout shift.
+const OutlineInputBorder _focusedFieldBorder = OutlineInputBorder(
+  borderRadius: BorderRadius.all(Radius.circular(_fieldRadius)),
+  borderSide: BorderSide(color: EcoTraceColors.leaf, width: 1),
+);
+
+/// Field border shown while a validation error is pending.
+const OutlineInputBorder _errorFieldBorder = OutlineInputBorder(
+  borderRadius: BorderRadius.all(Radius.circular(_fieldRadius)),
+  borderSide: BorderSide(color: EcoTraceColors.error, width: 1),
+);
+
+/// Field border for a focused field with an active validation error.
+const OutlineInputBorder _focusedErrorBorder = OutlineInputBorder(
+  borderRadius: BorderRadius.all(Radius.circular(_fieldRadius)),
+  borderSide: BorderSide(color: EcoTraceColors.error, width: 1),
+);
+
+/// Hint text style shared by every input field.
+final TextStyle _fieldHintStyle = TextStyle(
+  color: Colors.white.withValues(alpha: 0.40),
+  fontSize: 14,
+);
+
 class StaffAuthScreen extends StatefulWidget {
   const StaffAuthScreen({super.key});
 
@@ -14,8 +55,7 @@ class StaffAuthScreen extends StatefulWidget {
   State<StaffAuthScreen> createState() => _StaffAuthScreenState();
 }
 
-class _StaffAuthScreenState extends State<StaffAuthScreen>
-    with SingleTickerProviderStateMixin {
+class _StaffAuthScreenState extends State<StaffAuthScreen> {
   final _formKey = GlobalKey<FormState>();
   final _firstName = TextEditingController();
   final _middleName = TextEditingController();
@@ -24,79 +64,79 @@ class _StaffAuthScreenState extends State<StaffAuthScreen>
   final _password = TextEditingController();
   final _confirmation = TextEditingController();
   bool _loginMode = true;
-  bool _obscurePassword = true;
-  StaffType _staffType = StaffType.intern;
+  final ValueNotifier<bool> _obscurePassword = ValueNotifier(true);
+  final ValueNotifier<StaffType> _staffType = ValueNotifier(StaffType.intern);
+  final ValueNotifier<bool> _submitting = ValueNotifier(false);
 
-  // One-shot staggered entrance: header -> card -> form content.
-  late final AnimationController _entrance;
-  late final Animation<double> _headerAnim;
-  late final Animation<double> _cardAnim;
-  late final Animation<double> _formAnim;
+  // Validators stay stable per State instance: private methods hoisted out of
+  // build so each TextFormField keeps a fixed callback across rebuilds instead
+  // of allocating a brand-new closure on every keystroke / focus / validation.
+  String? _firstNameValidator(String? v) => _required(v, 'First name');
+  String? _lastNameValidator(String? v) => _required(v, 'Last name');
+  String? _usernameValidator(String? v) => _required(v, 'Username');
+  String? _passwordValidator(String? value) {
+    final r = _required(value, 'Password');
+    if (r != null) return r;
+    return value!.length < 8 ? 'Use at least 8 characters' : null;
+  }
+
+  String? _confirmationValidator(String? value) => value != _password.text
+      ? 'Passwords do not match'
+      : _required(value, 'Confirmation');
 
   @override
   void initState() {
     super.initState();
-    _entrance = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    _headerAnim = CurvedAnimation(
-      parent: _entrance,
-      curve: const Interval(0.0, 0.4, curve: Curves.easeOutCubic),
-    );
-    _cardAnim = CurvedAnimation(
-      parent: _entrance,
-      curve: const Interval(0.3, 0.65, curve: Curves.easeOutCubic),
-    );
-    _formAnim = CurvedAnimation(
-      parent: _entrance,
-      curve: const Interval(0.55, 0.95, curve: Curves.easeOutCubic),
-    );
-    _entrance.forward();
   }
 
   @override
   void dispose() {
-    _entrance.dispose();
     _firstName.dispose();
     _middleName.dispose();
     _lastName.dispose();
     _username.dispose();
     _password.dispose();
     _confirmation.dispose();
+    _obscurePassword.dispose();
+    _staffType.dispose();
+    _submitting.dispose();
     super.dispose();
   }
 
   String? _required(String? value, String name) =>
       value == null || value.trim().isEmpty ? '$name is required' : null;
 
-  void _submit() {
+  // Async-ready auth seam: yields one microtask today, but is shaped so real
+  // credential verification (API / local audit store) can slot in later
+  // without touching the UI. The submit button shows a spinner only while
+  // pending, so the current "instant success" path renders identically.
+  Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
+    _submitting.value = true;
+    await Future<void>.value();
+    if (!mounted) return;
+    _submitting.value = false;
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(_smoothRoute(const AppShell()));
   }
 
-  // Smooth zoom-fade route shared with the splash screen transition.
+  // Snappy fade route shared with the splash screen transition. Scale and
+  // slide were removed: animating a transform re-rasterizes the heavy
+  // glass-blur surface at a new size every frame, which is what made entry
+  // feel laggy. Opacity is composited at the already-rasterized size, so a
+  // short fade is effectively free.
   static PageRouteBuilder<void> _smoothRoute(Widget page) {
     return PageRouteBuilder(
-      transitionDuration: const Duration(milliseconds: 600),
+      transitionDuration: const Duration(milliseconds: 250),
+      reverseTransitionDuration: const Duration(milliseconds: 200),
       pageBuilder: (_, _, _) => page,
       transitionsBuilder: (_, animation, _, child) {
-        final eased = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutCubic,
-        );
         return FadeTransition(
-          opacity: eased,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 0.02),
-              end: Offset.zero,
-            ).animate(eased),
-            child: ScaleTransition(
-              scale: Tween<double>(begin: 0.97, end: 1.0).animate(eased),
-              child: child,
-            ),
+          opacity: CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
           ),
+          child: child,
         );
       },
     );
@@ -109,32 +149,49 @@ class _StaffAuthScreenState extends State<StaffAuthScreen>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Full-bleed canopy atmosphere behind the auth form.
-          const _CanopyBackdrop(),
+          // Full-bleed canopy atmosphere behind the auth form. Trapped in its
+          // own layer so the 24-sigma glass blur, focus changes, and keyboard
+          // events never re-rasterize its ~166 circle strokes.
+          const RepaintBoundary(child: _CanopyBackdrop()),
           SafeArea(
             child: Column(
               children: [
                 // ── Institution logos (top-left) ────────────────
-                _Entrance(
-                  animation: _headerAnim,
-                  slide: 0.04,
-                  child: const _InstitutionLogos(),
-                ),
+                const RepaintBoundary(child: _InstitutionLogos()),
 
-                // ── Glass form card ───────────────────────────────
+                // EcoTrace wordmark -- floats in the gap roughly halfway
+                // between the header logos and the form card. It stays
+                // OUTSIDE the scroll view below, so scrolling the form or
+                // opening the keyboard never moves or hides it. The flex
+                // void above collapses gracefully on short screens,
+                // sliding the brand back up beside the header.
+                const Spacer(),
+                const _EcoTraceBrand(),
+                const SizedBox(height: 20),
+
+                // -- Glass form card -------------------------------
+                // Only this region lifts above the keyboard; the
+                // backdrop and branding stay pinned to the full screen.
                 Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      return SingleChildScrollView(
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            minHeight: constraints.maxHeight,
-                          ),
-                          child: Center(
-                            child: _Entrance(
-                              animation: _cardAnim,
-                              slide: 0.04,
-                              scale: 1.015,
+                  // Large flex keeps the card centered in most of the
+                  // remaining height while the brand floats above it.
+                  flex: 8,
+                  child: AnimatedPadding(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutCubic,
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.viewInsetsOf(context).bottom,
+                    ),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return SingleChildScrollView(
+                          keyboardDismissBehavior:
+                              ScrollViewKeyboardDismissBehavior.onDrag,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: constraints.maxHeight,
+                            ),
+                            child: Center(
                               child: Padding(
                                 padding: const EdgeInsets.fromLTRB(
                                   20,
@@ -145,278 +202,190 @@ class _StaffAuthScreenState extends State<StaffAuthScreen>
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const _EcoTraceBrand(),
-                                    const SizedBox(height: 20),
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(28),
-                                      child: BackdropFilter(
-                                        filter: ImageFilter.blur(
-                                          sigmaX: 24,
-                                          sigmaY: 24,
+                                    RepaintBoundary(
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(
+                                          _glassRadius,
                                         ),
-                                        child: Container(
-                                          width: double.infinity,
-                                          decoration: BoxDecoration(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.18,
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              28,
-                                            ),
-                                            border: Border.all(
-                                              color: Colors.white.withValues(
-                                                alpha: 0.35,
-                                              ),
-                                              width: 1,
-                                            ),
-                                            boxShadow: const [
-                                              BoxShadow(
-                                                color: Color(0x18000000),
-                                                blurRadius: 48,
-                                                offset: Offset(0, 16),
-                                              ),
-                                            ],
+                                        child: BackdropFilter(
+                                          filter: ImageFilter.blur(
+                                            sigmaX: 24,
+                                            sigmaY: 24,
                                           ),
-                                          child: Padding(
-                                            padding: const EdgeInsets.fromLTRB(
-                                              26,
-                                              18,
-                                              26,
-                                              20,
+                                          child: Container(
+                                            width: double.infinity,
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.18,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    _glassRadius,
+                                                  ),
+                                              border: Border.all(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.35,
+                                                ),
+                                                width: 1,
+                                              ),
+                                              boxShadow: const [
+                                                BoxShadow(
+                                                  color: Color(0x18000000),
+                                                  blurRadius: 48,
+                                                  offset: Offset(0, 16),
+                                                ),
+                                              ],
                                             ),
-                                            child: Form(
-                                              key: _formKey,
-                                              child: _Entrance(
-                                                animation: _formAnim,
-                                                slide: 0.04,
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.fromLTRB(
+                                                    26,
+                                                    18,
+                                                    26,
+                                                    20,
+                                                  ),
+                                              child: Form(
+                                                key: _formKey,
                                                 child: Column(
                                                   crossAxisAlignment:
                                                       CrossAxisAlignment
                                                           .stretch,
                                                   children: [
-                                                    AnimatedSwitcher(
-                                                      duration: const Duration(
-                                                        milliseconds: 280,
-                                                      ),
-                                                      switchInCurve:
-                                                          Curves.easeOutCubic,
-                                                      switchOutCurve:
-                                                          Curves.easeInCubic,
-                                                      child: _FormHeading(
-                                                        key: ValueKey(
-                                                          _loginMode,
-                                                        ),
-                                                        loginMode: _loginMode,
-                                                      ),
+                                                    _FormHeading(
+                                                      loginMode: _loginMode,
                                                     ),
                                                     const SizedBox(height: 20),
-                                                    AnimatedSwitcher(
-                                                      duration: const Duration(
-                                                        milliseconds: 260,
-                                                      ),
-                                                      switchInCurve:
-                                                          Curves.easeOutCubic,
-                                                      switchOutCurve:
-                                                          Curves.easeInCubic,
-                                                      transitionBuilder:
-                                                          (
-                                                            child,
-                                                            anim,
-                                                          ) => FadeTransition(
-                                                            opacity: anim,
-                                                            child: SlideTransition(
-                                                              position:
-                                                                  Tween<Offset>(
-                                                                    begin:
-                                                                        const Offset(
-                                                                          0,
-                                                                          -0.04,
-                                                                        ),
-                                                                    end: Offset
-                                                                        .zero,
-                                                                  ).animate(
-                                                                    anim,
-                                                                  ),
-                                                              child: child,
-                                                            ),
-                                                          ),
-                                                      child: _loginMode
-                                                          ? const SizedBox.shrink(
-                                                              key: ValueKey(
-                                                                'login',
+                                                    _loginMode
+                                                        ? const SizedBox.shrink()
+                                                        : Column(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .stretch,
+                                                            children: [
+                                                              const SizedBox(
+                                                                height: 12,
                                                               ),
-                                                            )
-                                                          : Column(
-                                                              key:
-                                                                  const ValueKey(
-                                                                    'signup',
-                                                                  ),
-                                                              crossAxisAlignment:
-                                                                  CrossAxisAlignment
-                                                                      .stretch,
-                                                              children: [
-                                                                const SizedBox(
-                                                                  height: 12,
-                                                                ),
-                                                                const _FieldLabel(
-                                                                  'First name',
-                                                                ),
-                                                                TextFormField(
-                                                                  controller:
-                                                                      _firstName,
-                                                                  textCapitalization:
-                                                                      TextCapitalization
-                                                                          .words,
-                                                                  textInputAction:
-                                                                      TextInputAction
-                                                                          .next,
-                                                                  decoration:
-                                                                      _fieldDeco(
-                                                                        hint: 'Enter your first name',
-                                                                        icon: Icons
-                                                                            .person_outline_rounded,
-                                                                      ),
-                                                                  validator:
-                                                                      (
-                                                                        value,
-                                                                      ) => _required(
-                                                                        value,
-                                                                        'First name',
-                                                                      ),
-                                                                ),
-                                                                const SizedBox(
-                                                                  height: 12,
-                                                                ),
-                                                                const _FieldLabel(
-                                                                  'Middle name',
-                                                                  required:
-                                                                      false,
-                                                                ),
-                                                                TextFormField(
-                                                                  controller:
-                                                                      _middleName,
-                                                                  textCapitalization:
-                                                                      TextCapitalization
-                                                                          .words,
-                                                                  textInputAction:
-                                                                      TextInputAction
-                                                                          .next,
-                                                                  decoration:
-                                                                      _fieldDeco(
-                                                                        hint: 'Enter your middle name',
-                                                                        icon: Icons
-                                                                            .person_outline_rounded,
-                                                                      ),
-                                                                  // Optional: no
-                                                                  // validator.
-                                                                ),
-                                                                const SizedBox(
-                                                                  height: 12,
-                                                                ),
-                                                                const _FieldLabel(
-                                                                  'Last name',
-                                                                ),
-                                                                TextFormField(
-                                                                  controller:
-                                                                      _lastName,
-                                                                  textCapitalization:
-                                                                      TextCapitalization
-                                                                          .words,
-                                                                  textInputAction:
-                                                                      TextInputAction
-                                                                          .next,
-                                                                  decoration:
-                                                                      _fieldDeco(
-                                                                        hint: 'Enter your last name',
-                                                                        icon: Icons
-                                                                            .person_outline_rounded,
-                                                                      ),
-                                                                  validator:
-                                                                      (
-                                                                        value,
-                                                                      ) => _required(
-                                                                        value,
-                                                                        'Last name',
-                                                                      ),
-                                                                ),
-                                                                const SizedBox(
-                                                                  height: 12,
-                                                                ),
-                                                              ],
-                                                            ),
-                                                    ),
-                                                    AnimatedSwitcher(
-                                                      duration: const Duration(
-                                                        milliseconds: 260,
-                                                      ),
-                                                      switchInCurve:
-                                                          Curves.easeOutCubic,
-                                                      switchOutCurve:
-                                                          Curves.easeInCubic,
-                                                      transitionBuilder:
-                                                          (
-                                                            child,
-                                                            anim,
-                                                          ) => FadeTransition(
-                                                            opacity: anim,
-                                                            child: SlideTransition(
-                                                              position:
-                                                                  Tween<Offset>(
-                                                                    begin:
-                                                                        const Offset(
-                                                                          0,
-                                                                          -0.04,
-                                                                        ),
-                                                                    end: Offset
-                                                                        .zero,
-                                                                  ).animate(
-                                                                    anim,
-                                                                  ),
-                                                              child: child,
-                                                            ),
-                                                          ),
-                                                      child: _loginMode
-                                                          ? const SizedBox.shrink(
-                                                              key: ValueKey(
-                                                                'login',
+                                                              const _FieldLabel(
+                                                                'First name',
                                                               ),
-                                                            )
-                                                          : Column(
-                                                              key:
-                                                                  const ValueKey(
-                                                                    'signup',
-                                                                  ),
-                                                              crossAxisAlignment:
-                                                                  CrossAxisAlignment
-                                                                      .stretch,
-                                                              children: [
-                                                                const SizedBox(
-                                                                  height: 12,
-                                                                ),
-                                                                const _FieldLabel(
-                                                                  'Staff type',
-                                                                ),
-                                                                _StaffTypeSelector(
-                                                                  value:
-                                                                      _staffType,
-                                                                  onChanged: (t) =>
-                                                                      setState(
-                                                                        () => _staffType =
+                                                              TextFormField(
+                                                                controller:
+                                                                    _firstName,
+                                                                autofocus: true,
+                                                                textCapitalization:
+                                                                    TextCapitalization
+                                                                        .words,
+                                                                textInputAction:
+                                                                    TextInputAction
+                                                                        .next,
+                                                                decoration:
+                                                                    _fieldDeco(
+                                                                      hint: 'Enter your first name',
+                                                                      icon: Icons
+                                                                          .person_outline_rounded,
+                                                                    ),
+                                                                validator:
+                                                                    _firstNameValidator,
+                                                              ),
+                                                              const SizedBox(
+                                                                height: 12,
+                                                              ),
+                                                              const _FieldLabel(
+                                                                'Middle name',
+                                                                required: false,
+                                                              ),
+                                                              TextFormField(
+                                                                controller:
+                                                                    _middleName,
+                                                                textCapitalization:
+                                                                    TextCapitalization
+                                                                        .words,
+                                                                textInputAction:
+                                                                    TextInputAction
+                                                                        .next,
+                                                                decoration:
+                                                                    _fieldDeco(
+                                                                      hint: 'Enter your middle name',
+                                                                      icon: Icons
+                                                                          .person_outline_rounded,
+                                                                    ),
+                                                                // Optional: no
+                                                                // validator.
+                                                              ),
+                                                              const SizedBox(
+                                                                height: 12,
+                                                              ),
+                                                              const _FieldLabel(
+                                                                'Last name',
+                                                              ),
+                                                              TextFormField(
+                                                                controller:
+                                                                    _lastName,
+                                                                textCapitalization:
+                                                                    TextCapitalization
+                                                                        .words,
+                                                                textInputAction:
+                                                                    TextInputAction
+                                                                        .next,
+                                                                decoration:
+                                                                    _fieldDeco(
+                                                                      hint: 'Enter your last name',
+                                                                      icon: Icons
+                                                                          .person_outline_rounded,
+                                                                    ),
+                                                                validator:
+                                                                    _lastNameValidator,
+                                                              ),
+                                                              const SizedBox(
+                                                                height: 12,
+                                                              ),
+                                                            ],
+                                                          ),
+                                                    _loginMode
+                                                        ? const SizedBox.shrink()
+                                                        : Column(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .stretch,
+                                                            children: [
+                                                              const SizedBox(
+                                                                height: 12,
+                                                              ),
+                                                              const _FieldLabel(
+                                                                'Staff type',
+                                                              ),
+                                                              ValueListenableBuilder<
+                                                                StaffType
+                                                              >(
+                                                                valueListenable:
+                                                                    _staffType,
+                                                                builder:
+                                                                    (
+                                                                      context,
+                                                                      type,
+                                                                      _,
+                                                                    ) => _StaffTypeSelector(
+                                                                      value:
+                                                                          type,
+                                                                      onChanged:
+                                                                          (
                                                                             t,
-                                                                      ),
-                                                                ),
-                                                                const SizedBox(
-                                                                  height: 12,
-                                                                ),
-                                                              ],
-                                                            ),
-                                                    ),
+                                                                          ) => _staffType.value =
+                                                                              t,
+                                                                    ),
+                                                              ),
+                                                              const SizedBox(
+                                                                height: 12,
+                                                              ),
+                                                            ],
+                                                          ),
                                                     const SizedBox(height: 4),
                                                     const _FieldLabel(
                                                       'Username',
                                                     ),
                                                     TextFormField(
                                                       controller: _username,
+                                                      autofocus: true,
                                                       autocorrect: false,
                                                       enableSuggestions: false,
                                                       textInputAction:
@@ -426,145 +395,109 @@ class _StaffAuthScreenState extends State<StaffAuthScreen>
                                                         icon: Icons
                                                             .person_rounded,
                                                       ),
-                                                      validator: (value) =>
-                                                          _required(
-                                                            value,
-                                                            'Username',
-                                                          ),
+                                                      validator:
+                                                          _usernameValidator,
                                                     ),
                                                     const SizedBox(height: 12),
                                                     const _FieldLabel(
                                                       'Password',
                                                     ),
-                                                    TextFormField(
-                                                      controller: _password,
-                                                      obscureText:
+                                                    ValueListenableBuilder<
+                                                      bool
+                                                    >(
+                                                      valueListenable:
                                                           _obscurePassword,
-                                                      textInputAction:
-                                                          _loginMode
-                                                          ? TextInputAction.done
-                                                          : TextInputAction
-                                                                .next,
-                                                      decoration: _fieldDeco(
-                                                        hint: 'Enter your password',
-                                                        icon: Icons
-                                                            .lock_outline_rounded,
-                                                        suffix: IconButton(
-                                                          tooltip:
-                                                              _obscurePassword
-                                                              ? 'Show password'
-                                                              : 'Hide password',
-                                                          onPressed: () => setState(
-                                                            () => _obscurePassword =
-                                                                !_obscurePassword,
-                                                          ),
-                                                          icon: Icon(
-                                                            _obscurePassword
-                                                                ? Icons
-                                                                      .visibility_outlined
-                                                                : Icons
-                                                                      .visibility_off_outlined,
-                                                            color: Colors.white
-                                                                .withValues(
-                                                                  alpha: 0.7,
-                                                                ),
-                                                            size: 22,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      validator: (value) {
-                                                        final r = _required(
-                                                          value,
-                                                          'Password',
-                                                        );
-                                                        if (r != null) return r;
-                                                        return value!.length < 8
-                                                            ? 'Use at least 8 characters'
-                                                            : null;
-                                                      },
-                                                      onFieldSubmitted: (_) =>
-                                                          _submit(),
-                                                    ),
-                                                    AnimatedSwitcher(
-                                                      duration: const Duration(
-                                                        milliseconds: 260,
-                                                      ),
-                                                      switchInCurve:
-                                                          Curves.easeOutCubic,
-                                                      switchOutCurve:
-                                                          Curves.easeInCubic,
-                                                      transitionBuilder:
-                                                          (
-                                                            child,
-                                                            anim,
-                                                          ) => FadeTransition(
-                                                            opacity: anim,
-                                                            child: SlideTransition(
-                                                              position:
-                                                                  Tween<Offset>(
-                                                                    begin:
-                                                                        const Offset(
-                                                                          0,
-                                                                          -0.04,
-                                                                        ),
-                                                                    end: Offset
-                                                                        .zero,
-                                                                  ).animate(
-                                                                    anim,
-                                                                  ),
-                                                              child: child,
+                                                      builder: (context, obscured, _) {
+                                                        return TextFormField(
+                                                          controller: _password,
+                                                          obscureText: obscured,
+                                                          textInputAction:
+                                                              _loginMode
+                                                              ? TextInputAction
+                                                                    .done
+                                                              : TextInputAction
+                                                                    .next,
+                                                          decoration: _fieldDeco(
+                                                            hint: 'Enter your password',
+                                                            icon: Icons
+                                                                .lock_outline_rounded,
+                                                            suffix: IconButton(
+                                                              tooltip: obscured
+                                                                  ? 'Show password'
+                                                                  : 'Hide password',
+                                                              onPressed: () =>
+                                                                  _obscurePassword
+                                                                          .value =
+                                                                      !obscured,
+                                                              icon: Icon(
+                                                                obscured
+                                                                    ? Icons
+                                                                          .visibility_outlined
+                                                                    : Icons
+                                                                          .visibility_off_outlined,
+                                                                color: Colors
+                                                                    .white
+                                                                    .withValues(
+                                                                      alpha:
+                                                                          0.7,
+                                                                    ),
+                                                                size: 22,
+                                                              ),
                                                             ),
                                                           ),
-                                                      child: _loginMode
-                                                          ? const SizedBox.shrink(
-                                                              key: ValueKey(
-                                                                'login',
+                                                          validator:
+                                                              _passwordValidator,
+                                                          onFieldSubmitted: (
+                                                            _,
+                                                          ) => _submit(),
+                                                        );
+                                                      },
+                                                    ),
+                                                    _loginMode
+                                                        ? const SizedBox.shrink()
+                                                        : Column(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .stretch,
+                                                            children: [
+                                                              const SizedBox(
+                                                                height: 12,
                                                               ),
-                                                            )
-                                                          : Column(
-                                                              key:
-                                                                  const ValueKey(
-                                                                    'signup',
-                                                                  ),
-                                                              crossAxisAlignment:
-                                                                  CrossAxisAlignment
-                                                                      .stretch,
-                                                              children: [
-                                                                const SizedBox(
-                                                                  height: 12,
-                                                                ),
-                                                                const _FieldLabel(
-                                                                  'Confirm password',
-                                                                ),
-                                                                TextFormField(
+                                                              const _FieldLabel(
+                                                                'Confirm password',
+                                                              ),
+                                                              ValueListenableBuilder<
+                                                                bool
+                                                              >(
+                                                                valueListenable:
+                                                                    _obscurePassword,
+                                                                builder: (context, obscured, _) => TextFormField(
                                                                   controller:
                                                                       _confirmation,
                                                                   obscureText:
-                                                                      _obscurePassword,
+                                                                      obscured,
                                                                   decoration:
                                                                       _fieldDeco(
                                                                         hint: 'Re-enter password',
                                                                         icon: Icons
                                                                             .verified_user_outlined,
                                                                       ),
-                                                                  validator: (value) =>
-                                                                      value !=
-                                                                          _password
-                                                                              .text
-                                                                      ? 'Passwords do not match'
-                                                                      : _required(
-                                                                          value,
-                                                                          'Confirmation',
-                                                                        ),
+                                                                  validator:
+                                                                      _confirmationValidator,
                                                                 ),
-                                                              ],
-                                                            ),
-                                                    ),
+                                                              ),
+                                                            ],
+                                                          ),
                                                     const SizedBox(height: 18),
-                                                    Container(
-                                                      decoration: BoxDecoration(
-                                                        gradient:
-                                                            const LinearGradient(
+                                                    ValueListenableBuilder<
+                                                      bool
+                                                    >(
+                                                      valueListenable:
+                                                          _submitting,
+                                                      builder: (context, submitting, _) {
+                                                        return Container(
+                                                          decoration: BoxDecoration(
+                                                            gradient: const LinearGradient(
                                                               begin: Alignment
                                                                   .topLeft,
                                                               end: Alignment
@@ -576,74 +509,94 @@ class _StaffAuthScreenState extends State<StaffAuthScreen>
                                                                     .forestDeep,
                                                               ],
                                                             ),
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              16,
-                                                            ),
-                                                        boxShadow: const [
-                                                          BoxShadow(
-                                                            color: Color(
-                                                              0x4D0B1F17,
-                                                            ),
-                                                            blurRadius: 18,
-                                                            offset: Offset(
-                                                              0,
-                                                              8,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      child: FilledButton(
-                                                        onPressed: _submit,
-                                                        style: FilledButton.styleFrom(
-                                                          backgroundColor:
-                                                              Colors
-                                                                  .transparent,
-                                                          foregroundColor:
-                                                              Colors.white,
-                                                          elevation: 0,
-                                                          shadowColor: Colors
-                                                              .transparent,
-                                                          minimumSize:
-                                                              const Size.fromHeight(
-                                                                56,
-                                                              ),
-                                                          shape: RoundedRectangleBorder(
                                                             borderRadius:
                                                                 BorderRadius.circular(
-                                                                  16,
+                                                                  _fieldRadius,
                                                                 ),
-                                                          ),
-                                                          textStyle:
-                                                              const TextStyle(
-                                                                fontSize: 16,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w700,
-                                                                letterSpacing:
-                                                                    0.4,
+                                                            boxShadow: const [
+                                                              BoxShadow(
+                                                                color: Color(
+                                                                  0x4D0B1F17,
+                                                                ),
+                                                                blurRadius: 18,
+                                                                offset: Offset(
+                                                                  0,
+                                                                  8,
+                                                                ),
                                                               ),
-                                                        ),
-                                                        child: Row(
-                                                          mainAxisSize:
-                                                              MainAxisSize.min,
-                                                          children: [
-                                                            Text(
-                                                              _loginMode
-                                                                  ? 'Login'
-                                                                  : 'Create staff profile',
+                                                            ],
+                                                          ),
+                                                          child: FilledButton(
+                                                            onPressed:
+                                                                submitting
+                                                                ? null
+                                                                : _submit,
+                                                            style: FilledButton.styleFrom(
+                                                              backgroundColor:
+                                                                  Colors
+                                                                      .transparent,
+                                                              foregroundColor:
+                                                                  Colors.white,
+                                                              elevation: 0,
+                                                              shadowColor: Colors
+                                                                  .transparent,
+                                                              minimumSize:
+                                                                  const Size.fromHeight(
+                                                                    56,
+                                                                  ),
+                                                              shape: RoundedRectangleBorder(
+                                                                borderRadius:
+                                                                    BorderRadius.circular(
+                                                                      _fieldRadius,
+                                                                    ),
+                                                              ),
+                                                              textStyle:
+                                                                  const TextStyle(
+                                                                    fontSize:
+                                                                        16,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w700,
+                                                                    letterSpacing:
+                                                                        0.4,
+                                                                  ),
                                                             ),
-                                                            const SizedBox(
-                                                              width: 8,
-                                                            ),
-                                                            const Icon(
-                                                              Icons
-                                                                  .arrow_forward_rounded,
-                                                              size: 20,
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ),
+                                                            child: submitting
+                                                                ? const SizedBox(
+                                                                    width: 20,
+                                                                    height: 20,
+                                                                    child: CircularProgressIndicator(
+                                                                      strokeWidth:
+                                                                          2.4,
+                                                                      color: Colors
+                                                                          .white,
+                                                                    ),
+                                                                  )
+                                                                : Row(
+                                                                    mainAxisSize:
+                                                                        MainAxisSize
+                                                                            .min,
+                                                                    children: [
+                                                                      Text(
+                                                                        _loginMode
+                                                                            ? 'Login'
+                                                                            : 'Create staff profile',
+                                                                      ),
+                                                                      const SizedBox(
+                                                                        width:
+                                                                            8,
+                                                                      ),
+                                                                      const Icon(
+                                                                        Icons
+                                                                            .arrow_forward_rounded,
+                                                                        size:
+                                                                            20,
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                          ),
+                                                        );
+                                                      },
                                                     ),
                                                     const SizedBox(height: 12),
                                                     Text(
@@ -662,19 +615,11 @@ class _StaffAuthScreenState extends State<StaffAuthScreen>
                                                       ),
                                                     ),
                                                     const SizedBox(height: 18),
-                                                    AnimatedSwitcher(
-                                                      duration: const Duration(
-                                                        milliseconds: 260,
-                                                      ),
-                                                      child: _AuthModeLink(
-                                                        key: ValueKey(
-                                                          _loginMode,
-                                                        ),
-                                                        loginMode: _loginMode,
-                                                        onTap: () => setState(
-                                                          () => _loginMode =
-                                                              !_loginMode,
-                                                        ),
+                                                    _AuthModeLink(
+                                                      loginMode: _loginMode,
+                                                      onTap: () => setState(
+                                                        () => _loginMode =
+                                                            !_loginMode,
                                                       ),
                                                     ),
                                                   ],
@@ -682,58 +627,23 @@ class _StaffAuthScreenState extends State<StaffAuthScreen>
                                               ),
                                             ),
                                           ),
-                                        ),
-                                      ), // BackdropFilter
-                                    ), // ClipRRect
+                                        ), // BackdropFilter
+                                      ), // ClipRRect
+                                    ), // RepaintBoundary
                                   ], // Column children
                                 ), // Column
                               ), // Padding
-                            ), // _Entrance (card)
-                          ), // Center
-                        ), // ConstrainedBox
-                      ); // SingleChildScrollView (return)
-                    },
-                  ), // LayoutBuilder
+                            ), // Center
+                          ), // ConstrainedBox
+                        ); // SingleChildScrollView (return)
+                      },
+                    ), // LayoutBuilder
+                  ), // AnimatedPadding
                 ), // Expanded
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Staggers a widget's entrance: fades it in, lifts it from [slide] fraction
-/// of its own height, and optionally settles its scale towards 1.0.
-class _Entrance extends StatelessWidget {
-  const _Entrance({
-    required this.animation,
-    required this.slide,
-    this.scale,
-    required this.child,
-  });
-
-  final Animation<double> animation;
-  final double slide;
-  final double? scale;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: animation,
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: Offset(0, slide),
-          end: Offset.zero,
-        ).animate(animation),
-        child: scale == null
-            ? child
-            : ScaleTransition(
-                scale: Tween<double>(begin: scale, end: 1.0).animate(animation),
-                child: child,
-              ),
+              ], // Column children
+            ), // Column
+          ), // SafeArea
+        ], // Stack children
       ),
     );
   }
@@ -970,11 +880,7 @@ class _FieldLabel extends StatelessWidget {
 /// login and sign-up views of the staff auth flow. The action phrase renders
 /// as an underlined accent link.
 class _AuthModeLink extends StatelessWidget {
-  const _AuthModeLink({
-    super.key,
-    required this.loginMode,
-    required this.onTap,
-  });
+  const _AuthModeLink({required this.loginMode, required this.onTap});
 
   final bool loginMode;
   final VoidCallback onTap;
@@ -1016,7 +922,7 @@ class _AuthModeLink extends StatelessWidget {
 
 /// Modern heading that orients the user to the active auth mode.
 class _FormHeading extends StatelessWidget {
-  const _FormHeading({super.key, required this.loginMode});
+  const _FormHeading({required this.loginMode});
 
   final bool loginMode;
 
@@ -1068,36 +974,12 @@ InputDecoration _fieldDeco({
     filled: true,
     fillColor: Colors.white.withValues(alpha: 0.10),
     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-    hintStyle: TextStyle(
-      color: Colors.white.withValues(alpha: 0.40),
-      fontSize: 14,
-    ),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: BorderSide(
-        color: Colors.white.withValues(alpha: 0.15),
-        width: 1,
-      ),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: BorderSide(
-        color: Colors.white.withValues(alpha: 0.15),
-        width: 1,
-      ),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: const BorderSide(color: EcoTraceColors.leaf, width: 1.8),
-    ),
-    errorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: const BorderSide(color: EcoTraceColors.error, width: 1),
-    ),
-    focusedErrorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: const BorderSide(color: EcoTraceColors.error, width: 1.8),
-    ),
+    hintStyle: _fieldHintStyle,
+    border: _idleFieldBorder,
+    enabledBorder: _idleFieldBorder,
+    focusedBorder: _focusedFieldBorder,
+    errorBorder: _errorFieldBorder,
+    focusedErrorBorder: _focusedErrorBorder,
     errorStyle: const TextStyle(color: EcoTraceColors.error, fontSize: 12),
   );
 }
@@ -1124,9 +1006,7 @@ class _StaffTypeSelector extends StatelessWidget {
         builder: (context, constraints) {
           return Stack(
             children: [
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 280),
-                curve: Curves.easeOutCubic,
+              Positioned(
                 left: constraints.maxWidth / items.length * idx,
                 top: 0,
                 width: constraints.maxWidth / items.length,
