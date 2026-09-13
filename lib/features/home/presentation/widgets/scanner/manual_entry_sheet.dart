@@ -92,7 +92,7 @@ class _ManualEntrySheetState extends State<ManualEntrySheet> {
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
                 labelText: 'Tree tag',
-                hintText: 'e.g., T-104',
+                hintText: 'e.g., TRE-0892',
               ),
               validator: (value) => _required(value, 'Tree tag'),
             ),

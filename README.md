@@ -30,6 +30,10 @@ Important reference files:
 - `index.html` and `css/add.css`: scanner and field collection visual direction.
 - `alerts.html`, `events.html`, and `map.html`: future dashboard, incident, and map concepts.
 
+The admin portal that owns the authoritative tree inventory and map geometry is at:
+
+- `C:/laragon/www/ecotrace_admin` — `src/lib/trees.ts` (tree inventory + statuses) and `src/lib/site.ts` (UEP Catarman zones, campus bounds, mapping helpers). The Flutter map transcribes this data into `lib/features/home/presentation/models/campus_data.dart`.
+
 The current native theme is based on these web tokens:
 
 | Token | Value | Usage |
@@ -47,7 +51,7 @@ The current native theme is based on these web tokens:
 
 Preserve the existing visual language: compact mobile screens, rounded controls, strong dark-green contrast, lemon action accents, and readable form spacing.
 
-## Current Status: Phase 2 Frontend Shell Complete
+## Current Status: Phase 2 Shell + Phase 3 Real Map Port
 
 The current implementation contains:
 
@@ -73,10 +77,18 @@ The current implementation contains:
 - Enlarged floating tree-verification action with responsive compact-phone sizing.
 - Realistic offline field-map presentation with terrain, roads, parcels, water, and pin markers.
 - Phase 2 frontend notes in `PHASE_2_PROGRESS.md`.
+- Real interactive campus map in the Map tab using `flutter_map` + `latlong2` (OSM street tiles by default).
+- Esri World Imagery satellite layer toggle in the map header.
+- All 23 georeferenced admin `TRE-*` trees (real lat/lng) with admin zone/status vocabulary and marker colors.
+- Zone chips and status filter panel with live inventory counts.
+- Bottom-sheet tree details: species, zone, planter, planted date, coordinates, status, `Start Verification` (opens the scanner) and `Report incident` (opens the linked incident form).
+- Replaced the synthetic CustomPaint grid (deleted `field_map_painter.dart` and `map_label.dart`); left-over `T-*` mock tags updated to admin `TRE-*` tags.
+- `INTERNET` permission added to the Android manifest for map tile downloads.
+- Phase 3 notes in `PHASE_3_PROGRESS.md`.
 
 ### Intentional Preview Limitations
 
-Authentication is not connected to a backend yet. A valid local form submission only opens the frontend preview. No password is hashed, persisted, transmitted, or compared. No access token, refresh token, session, or route guard exists yet. The scanner, map, events, alerts, and profile currently use local mock data.
+Authentication is not connected to a backend yet. A valid local form submission only opens the frontend preview. No password is hashed, persisted, transmitted, or compared. No access token, refresh token, session, or route guard exists yet. The scanner, events, alerts, profile, and sync state currently use local mock data. The Map tab now renders real OSM/satellite tiles and the admin portal's tree inventory (seeded locally), but tree statuses and records are not yet fetched from or pushed to a backend.
 
 The API contract, password hashing responsibility, staff ID format, and authorization rules must be confirmed before implementing production authentication.
 
@@ -245,7 +257,13 @@ Do not proceed without a confirmed API base URL, authentication payload, respons
 
 ### Phase 3: Field Verification
 
-Frontend preview status: complete for the initial manual-entry and selected-tree flow. Real data, camera/NFC, GPS, and draft persistence remain pending.
+Real map surface status: complete (Phase 3 map port).
+
+- Replace the synthetic grid map with a real interactive Leaflet-style map (`flutter_map` + `latlong2`).
+- Port the admin portal's 23 `TRE-*` records, zone frames, statuses, and colors into the Map tab (OSM default, Esri satellite toggle, zone chips, status filters, GPS/recenter, bottom-sheet details linked to verification and incident reporting).
+- Verify `flutter analyze`, `flutter test`, and `flutter build apk --debug` gates for the map port.
+
+Field verification frontend preview status: complete for the initial manual-entry and selected-tree flow. Real data, camera/NFC, GPS, and draft persistence remain pending.
 
 - Build the tree lookup or scan entry point.
 - Mirror `TREE_RECORD` attributes in a mobile data-collection form.
@@ -325,7 +343,7 @@ When changing a feature, add or update focused tests before broadening the imple
 
 When continuing this project:
 
-1. Read this README and `PHASE_1_PROGRESS.md`.
+1. Read this README and the progress logs (`PHASE_1_PROGRESS.md`, `PHASE_2_PROGRESS.md`, `PHASE_3_PROGRESS.md`).
 2. Inspect the current files before editing; user or formatter changes may be present.
 3. Confirm which phase the user wants to start or review.
 4. Work in one phase only and stop at the review gate.
@@ -337,7 +355,7 @@ When continuing this project:
 
 ## Current Next Action
 
-The next recommended task is Phase 2 contract discovery and secure authentication integration. Before writing network code, obtain the backend authentication endpoint, request and response examples, token/session behavior, and the authoritative `MONITORING_STAFF` schema. The typed domain contracts can then receive DTO mappers without changing the screens.
+The next recommended task is to confirm the backend contracts: obtain the authentication endpoint, request and response examples, token/session behavior, and the authoritative `MONITORING_STAFF` and `TREE_RECORD` schemas. With those confirmed, wire the Map tab's inventory and statuses to the backend tree records endpoint (replacing the local admin-portal seed) and integrate secure authentication for Phase 2. The typed domain contracts can then receive DTO mappers without changing the screens.
 
 # ecotrace
 

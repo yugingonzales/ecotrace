@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
+import '../../../../../core/connectivity/app_connectivity_scope.dart';
+import '../../../../../core/connectivity/connection_status.dart';
 import '../../../../../core/theme/app_theme.dart';
+import '../../models/campus_data.dart';
 import '../../models/map_tree.dart';
-import '../../painters/field_map_painter.dart';
-import '../../widgets/map/gps_marker.dart';
+import '../../widgets/map/map_canvas.dart';
+import '../../widgets/map/map_filter_panel.dart';
 import '../../widgets/map/map_header.dart';
-import '../../widgets/map/map_label.dart';
-import '../../widgets/map/map_legend.dart';
 import '../../widgets/map/tree_details_card.dart';
-import '../../widgets/map/tree_marker.dart';
+import '../incident/incident_report_screen.dart';
+import '../scanner/scanner_screen.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -18,208 +22,181 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  static const _trees = [
-    MapTree(
-      code: 'T-104',
-      species: 'Narra',
-      scientificName: 'Pterocarpus indicus',
-      planted: 'Jun 12, 2024',
-      planter: 'CWTS Team A',
-      sector: 'Sector 4-A',
-      status: 'Healthy',
-      dbh: '24.6 cm',
-      crown: '5.2 m',
-      color: Color(0xFF22C55E),
-    ),
-    MapTree(
-      code: 'T-118',
-      species: 'Molave',
-      scientificName: 'Vitex parviflora',
-      planted: 'May 28, 2024',
-      planter: 'Green Roots Org.',
-      sector: 'Sector 4-B',
-      status: 'At risk',
-      dbh: '18.3 cm',
-      crown: '3.8 m',
-      color: Color(0xFFF97316),
-    ),
-    MapTree(
-      code: 'T-121',
-      species: 'Yakal',
-      scientificName: 'Shorea astylosa',
-      planted: 'Jul 03, 2024',
-      planter: 'CWTS Team B',
-      sector: 'Sector 4-A',
-      status: 'Healthy',
-      dbh: '21.1 cm',
-      crown: '4.6 m',
-      color: Color(0xFF22C55E),
-    ),
-    MapTree(
-      code: 'T-109',
-      species: 'Unknown',
-      scientificName: 'Pending',
-      planted: 'Record pending',
-      planter: 'Unassigned',
-      sector: 'Sector 4-C',
-      status: 'Unknown',
-      dbh: 'Pending',
-      crown: 'Pending',
-      color: Color(0xFF64748B),
-    ),
-  ];
+  static const _gpsPoint = LatLng(campusCenterLat, campusCenterLng);
 
+  final MapController _mapController = MapController();
+
+  bool _satellite = false;
+  bool _filtersOpen = false;
+  String? _zoneFilter;
+  TreeStatus? _statusFilter;
   MapTree? _selectedTree;
 
-  void _selectTree(String code) {
-    final tree = _trees.firstWhere((tree) => tree.code == code);
+  int get _activeFilterCount =>
+      (_zoneFilter == null ? 0 : 1) + (_statusFilter == null ? 0 : 1);
+
+  // Stable callback instances (bound once) so MapCanvas.didUpdateWidget can
+  // detect "nothing changed" and skip rebuilding the map subtree.
+  late final ValueChanged<MapTree> _onTreeSelected = _selectTree;
+  late final VoidCallback _onMapTap = _closeDetailsIfAny;
+
+  void _selectTree(MapTree tree) {
+    if (_selectedTree?.id == tree.id) return;
     setState(() => _selectedTree = tree);
+  }
+
+  void _closeDetails() => setState(() => _selectedTree = null);
+
+  /// Map taps nudge the selected tree only when one is actually open — taps
+  /// on empty map no longer trigger a full chrome + map rebuild.
+  void _closeDetailsIfAny() {
+    if (_selectedTree == null) return;
+    setState(() => _selectedTree = null);
+  }
+
+  void _setZoneFilter(String? zone) {
+    if (_zoneFilter == zone) return;
+    setState(() => _zoneFilter = zone);
+  }
+
+  void _setStatusFilter(TreeStatus? status) {
+    if (_statusFilter == status) return;
+    setState(() => _statusFilter = status);
+  }
+
+  void _recenter() => _mapController.move(_gpsPoint, 16);
+
+  void _openScanner() {
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => const ScannerScreen()));
+  }
+
+  void _openIncidentReport(String treeId) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => IncidentReportScreen(treeCode: treeId),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final connection = AppConnectivityScope.statusOf(context);
     return Stack(
       children: [
-        Container(
-          color: const Color(0xFFDDE8D9),
-          child: CustomPaint(
-            painter: FieldMapPainter(),
-            child: Stack(
-              children: [
-                Positioned(
-                  left: 72,
-                  top: 210,
-                  child: TreeMarker(
-                    code: 'T-104',
-                    color: const Color(0xFF22C55E),
-                    onTap: () => _selectTree('T-104'),
-                  ),
-                ),
-                Positioned(
-                  left: 245,
-                  top: 170,
-                  child: TreeMarker(
-                    code: 'T-118',
-                    color: const Color(0xFFF97316),
-                    onTap: () => _selectTree('T-118'),
-                  ),
-                ),
-                Positioned(
-                  left: 300,
-                  top: 330,
-                  child: TreeMarker(
-                    code: 'T-121',
-                    color: const Color(0xFF22C55E),
-                    onTap: () => _selectTree('T-121'),
-                  ),
-                ),
-                Positioned(
-                  left: 140,
-                  top: 370,
-                  child: TreeMarker(
-                    code: 'T-109',
-                    color: const Color(0xFF64748B),
-                    onTap: () => _selectTree('T-109'),
-                  ),
-                ),
-                const Positioned(left: 175, top: 280, child: GpsMarker()),
-              ],
-            ),
-          ),
-        ),
-        const Positioned(
-          top: 132,
-          left: 18,
-          child: MapLabel(
-            icon: Icons.forest_outlined,
-            text: 'Sector 4\nReforestation Zone',
-          ),
-        ),
-        const Positioned(
-          top: 310,
-          right: 18,
-          child: MapLabel(
-            icon: Icons.terrain_outlined,
-            text: 'North\nQuadrant',
-          ),
+        // The map canvas is memoized: chrome interactivity below (header,
+        // filters, details sheet) rebuilds only this Stack's overlay widgets,
+        // never the FlutterMap + tile + marker subtree.
+        MapCanvas(
+          mapController: _mapController,
+          isSatellite: _satellite,
+          zoneFilter: _zoneFilter,
+          statusFilter: _statusFilter,
+          selectedTreeId: _selectedTree?.id,
+          onTreeSelected: _onTreeSelected,
+          onMapTap: _onMapTap,
         ),
         Positioned(
-          top: 132,
-          left: 18,
+          left: 10,
+          bottom: 12,
           child: Container(
-            width: 36,
-            height: 36,
-            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .92),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: const [
-                BoxShadow(color: Color(0x1A000000), blurRadius: 8),
-              ],
+              color: Colors.white.withValues(alpha: .75),
+              borderRadius: BorderRadius.circular(8),
             ),
-            child: const Text(
-              'N',
-              style: TextStyle(
-                color: EcoTraceColors.forest,
-                fontSize: 14,
-                fontWeight: FontWeight.w900,
+            child: Text(
+              _satellite ? '© Esri' : '© OpenStreetMap',
+              style: const TextStyle(
+                color: Color(0xFF55685E),
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
         ),
-
-
         Positioned(
-          left: 18,
-          bottom: 116,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .92),
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: const [
-                BoxShadow(color: Color(0x1A000000), blurRadius: 8),
-              ],
-            ),
-            child: const Row(
-              children: [
-                Icon(
-                  Icons.straighten_rounded,
-                  color: EcoTraceColors.forest,
-                  size: 14,
-                ),
-                SizedBox(width: 5),
-                Text(
-                  '50 m',
-                  style: TextStyle(
-                    color: EcoTraceColors.forest,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
+          top: 12,
+          left: 12,
+          right: 12,
+          child: MapHeader(
+            isSatellite: _satellite,
+            isOnline: connection == ConnectionStatus.online,
+            onToggleLayers: () => setState(() => _satellite = !_satellite),
           ),
         ),
         Positioned(
-          top: 32,
-          left: 16,
-          right: 16,
-          child: MapHeader(onTreeSelected: _selectTree),
+          top: 80,
+          right: 12,
+          child: Tooltip(
+            message: 'Filters',
+            child: MapFilterButton(
+              open: _filtersOpen,
+              activeFilterCount: _activeFilterCount,
+              onTap: () => setState(() => _filtersOpen = !_filtersOpen),
+            ),
+          ),
         ),
-        const Positioned(top: 92, right: 16, child: MapLegend()),
-        AnimatedPositioned(
-          left: 16,
-          right: 16,
-          bottom: _selectedTree == null ? -300 : 16,
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeOutCubic,
-          child: _selectedTree == null
-              ? const SizedBox.shrink()
-              : TreeDetailsCard(
-                  tree: _selectedTree!,
-                  onClose: () => setState(() => _selectedTree = null),
+        if (_filtersOpen)
+          Positioned(
+            top: 130,
+            right: 12,
+            child: MapFilterPanel(
+              zoneFilter: _zoneFilter,
+              statusFilter: _statusFilter,
+              onZoneSelected: _setZoneFilter,
+              onStatusSelected: _setStatusFilter,
+            ),
+          ),
+        Positioned(
+          right: 12,
+          bottom: _selectedTree == null ? 92 : 330,
+          child: Tooltip(
+            message: 'Recenter on campus',
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _recenter,
+                customBorder: const CircleBorder(),
+                child: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: const [
+                      BoxShadow(color: Color(0x26000000), blurRadius: 10),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.navigation_rounded,
+                    color: EcoTraceColors.forest,
+                    size: 22,
+                  ),
                 ),
+              ),
+            ),
+          ),
+        ),
+        AnimatedPositioned(
+          left: 12,
+          right: 12,
+          bottom: _selectedTree == null ? -360 : 12,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
+          // The sheet slides over the map without invalidating the map's own
+          // paint layer.
+          child: RepaintBoundary(
+            child: _selectedTree == null
+                ? const SizedBox.shrink()
+                : TreeDetailsCard(
+                    tree: _selectedTree!,
+                    onClose: _closeDetails,
+                    onStartVerification: _openScanner,
+                    onReportIncident: () =>
+                        _openIncidentReport(_selectedTree!.id),
+                  ),
+          ),
         ),
       ],
     );

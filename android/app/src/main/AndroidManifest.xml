@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required to load OSM/satellite map tiles from the network. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Required by connectivity_plus to read the active network state. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <application
         android:label="ecotrace"
         android:name="${applicationName}"

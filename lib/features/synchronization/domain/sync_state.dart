@@ -1,4 +1,7 @@
-enum ConnectionStatus { online, offline }
+import '../../../core/connectivity/connection_status.dart';
+
+export '../../../core/connectivity/connection_status.dart'
+    show ConnectionStatus;
 
 enum SyncStatus { idle, syncing, synced, failed, conflict }
 
