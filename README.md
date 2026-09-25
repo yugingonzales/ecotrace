@@ -73,6 +73,7 @@ The current implementation contains:
 - Typed domain contracts for tree records, incidents, and synchronization state.
 - Responsive layout tuning for compact Android screens, including adaptive navigation and auth branding.
 - Functional offline Events tab with local schedule actions and search/filter behavior.
+- Events tab now collapses the calendar strip while scrolling the schedule (restored only at the top) and issues a three-second participation receipt after a confirmed check-in. See `EVENTS_EXPERIENCE_PROGRESS.md`.
 - Functional offline manual tree-verification draft form aligned with `TREE_RECORD` fields.
 - Enlarged floating tree-verification action with responsive compact-phone sizing.
 - Realistic offline field-map presentation with terrain, roads, parcels, water, and pin markers.

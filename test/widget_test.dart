@@ -16,6 +16,9 @@ import 'package:ecotrace/core/connectivity/connection_status.dart';
 import 'package:ecotrace/core/connectivity/connectivity_banner_host.dart';
 import 'package:ecotrace/core/connectivity/connectivity_controller.dart';
 import 'package:ecotrace/core/theme/app_theme.dart';
+import 'package:ecotrace/features/home/presentation/widgets/events/participation_receipt.dart';
+import 'package:ecotrace/features/home/presentation/models/local_event.dart';
+import 'package:ecotrace/features/home/presentation/widgets/events/calendar_strip.dart';
 
 void main() {
   testWidgets('renders the animated splash then auth entry screen', (
@@ -182,6 +185,166 @@ void main() {
     expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
   });
 
+  testWidgets('collapses the calendar strip while scrolling down and restores '
+      'it at the top', (WidgetTester tester) async {
+    await tester.pumpWidget(const MaterialApp(home: AppShell()));
+    await tester.pumpAndSettle();
+
+    final strip = find.byKey(const Key('events-calendar-collapse'));
+    final list = find.byKey(const Key('events-list'));
+    final header = find.byKey(const Key('events-header'));
+
+    // The strip is fully present at rest, and the top bar is always visible.
+    expect(tester.getSize(strip).height, greaterThan(0));
+    expect(find.byTooltip('Calendar'), findsOneWidget);
+
+    final expandedHeaderHeight = tester.getSize(header).height;
+    // The strip on its own, excluding the 18px gap above it.
+    final bareStripHeight = tester.getSize(find.byType(CalendarStrip)).height;
+
+    // Scrolling down collapses the strip so the event cards get the space.
+    await tester.drag(list, const Offset(0, -260));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(strip).height, 0);
+
+    // The header must give back the strip *and* the 18px gap above it. When
+    // that gap was a sibling of the collapse region it stayed put, so the
+    // collapsed header kept 18 + 16px of dead green under the title.
+    final reclaimed = expandedHeaderHeight - tester.getSize(header).height;
+    expect(reclaimed, greaterThanOrEqualTo(bareStripHeight + 10));
+    // The top bar is untouched by the collapse, and the cards now own the
+    // reclaimed space.
+    expect(find.byTooltip('Calendar'), findsOneWidget);
+    expect(find.text('Tree planting & tagging'), findsWidgets);
+
+    // Scrolling back up but staying below the top keeps it collapsed, so a
+    // long list keeps its reclaimed space.
+    await tester.drag(list, const Offset(0, 60));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(strip).height, 0);
+
+    // Reaching the very top brings the calendar back.
+    await tester.drag(list, const Offset(0, 600));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(strip).height, greaterThan(0));
+  });
+
+  testWidgets('cancelling the participation confirmation leaves the event '
+      'unjoined', (WidgetTester tester) async {
+    await tester.pumpWidget(const MaterialApp(home: AppShell()));
+
+    await tester.tap(find.text('Tree planting & tagging'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirm participation'));
+    await tester.pumpAndSettle();
+
+    // The dialog summarises the event before anything is recorded.
+    expect(find.text('Enter event'), findsOneWidget);
+    // The location shows both in the dialog and on the card behind it.
+    expect(find.text('Sector 4 Reforestation Zone'), findsWidgets);
+    expect(find.text('Joined'), findsNothing);
+
+    await tester.tap(find.text('Not now'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Enter event'), findsNothing);
+    expect(find.text("You're in!"), findsNothing);
+    expect(find.text('Joined'), findsNothing);
+    // Back on the list, the card's own action still offers to join.
+    expect(find.text('Confirm'), findsOneWidget);
+  });
+
+  testWidgets('confirmed participation shows a receipt that auto-dismisses', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: AppShell()));
+
+    await tester.tap(find.text('Tree planting & tagging'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirm participation'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Enter event'));
+    // Pump a bounded amount so the receipt is on screen but its 3s window has
+    // not elapsed; pumpAndSettle here would wait the receipt out.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // The receipt is issued exactly once, and the card reflects the join.
+    expect(find.text("You're in!"), findsOneWidget);
+    expect(find.text('PARTICIPATION CONFIRMED'), findsOneWidget);
+    expect(find.text('Tree planting & tagging'), findsWidgets);
+    expect(find.textContaining('Sep 6'), findsOneWidget);
+    expect(find.text('Joined'), findsOneWidget);
+
+    // It clears itself after the receipt window, driven by the ticker so the
+    // test needs no real-time delay.
+    await tester.pump(kParticipationReceiptDuration);
+    await tester.pumpAndSettle();
+    expect(find.text("You're in!"), findsNothing);
+    expect(find.text('Joined'), findsOneWidget);
+  });
+
+  testWidgets('participation receipt can be dismissed early by tapping it', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: AppShell()));
+
+    await tester.tap(find.text('Tree planting & tagging'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirm participation'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Enter event'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text("You're in!"), findsOneWidget);
+
+    // Tapping the scrim dismisses it before the window elapses.
+    await tester.tapAt(const Offset(20, 20));
+    await tester.pumpAndSettle();
+    expect(find.text("You're in!"), findsNothing);
+  });
+
+  testWidgets('participation receipt renders a long event title in full', (
+    WidgetTester tester,
+  ) async {
+    const longTitle =
+        'Verification feedback review and riparian buffer planting day';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: ParticipationReceiptCard(
+              event: const LocalEvent(
+                id: 'evt-long',
+                day: 6,
+                time: '07:00 - 09:00',
+                title: longTitle,
+                location: 'Sector 4 Reforestation Belt',
+                description: 'Long title regression coverage.',
+                attendeeCount: 8,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The title has no maxLines and must keep wrapping to its natural height.
+    // This guards against a future line cap silently truncating long names.
+    expect(find.text(longTitle), findsOneWidget);
+    expect(find.textContaining('…'), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    // The hero title sits above the perforation, ahead of the detail rows.
+    final titleY = tester.getTopLeft(find.text(longTitle)).dy;
+    final locationY = tester
+        .getTopLeft(find.text('Sector 4 Reforestation Belt'))
+        .dy;
+    expect(titleY, lessThan(locationY));
+  });
+
   testWidgets('makes local event actions functional', (
     WidgetTester tester,
   ) async {
@@ -193,7 +356,11 @@ void main() {
 
     await tester.tap(find.text('Confirm participation'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Enter event'));
+    await tester.pumpAndSettle();
     expect(find.text('Joined'), findsOneWidget);
+    await tester.pump(kParticipationReceiptDuration);
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Search'));
     await tester.pumpAndSettle();
