@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
@@ -7,9 +6,9 @@ import '../../../core/theme/app_theme.dart';
 import '../../home/presentation/app_shell.dart';
 import '../domain/monitoring_staff.dart';
 
-// ── Shared look-and-feel constants ────────────────────────────────────────────
+// â”€â”€ Shared look-and-feel constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Hoisted to file scope so every form field reuses the same border / hint /
-// radius instances — stable identities mean zero per-build allocation here,
+// radius instances â€” stable identities mean zero per-build allocation here,
 // and OutlineInputBorders are not const-constructible with rounded corners.
 
 /// Corner radius of the glass form card and its frosted container.
@@ -24,7 +23,7 @@ final OutlineInputBorder _idleFieldBorder = OutlineInputBorder(
   borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15), width: 1),
 );
 
-/// Focused field border — leaf accent, same width as idle to prevent layout shift.
+/// Focused field border â€” leaf accent, same width as idle to prevent layout shift.
 const OutlineInputBorder _focusedFieldBorder = OutlineInputBorder(
   borderRadius: BorderRadius.all(Radius.circular(_fieldRadius)),
   borderSide: BorderSide(color: EcoTraceColors.leaf, width: 1),
@@ -156,7 +155,7 @@ class _StaffAuthScreenState extends State<StaffAuthScreen> {
           SafeArea(
             child: Column(
               children: [
-                // ── Institution logos (top-left) ────────────────
+                // â”€â”€ Institution logos (top-left) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 const RepaintBoundary(child: _InstitutionLogos()),
 
                 // EcoTrace wordmark -- floats in the gap roughly halfway
@@ -202,18 +201,8 @@ class _StaffAuthScreenState extends State<StaffAuthScreen> {
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    RepaintBoundary(
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(
-                                          _glassRadius,
-                                        ),
-                                        child: BackdropFilter(
-                                          filter: ImageFilter.blur(
-                                            sigmaX: 24,
-                                            sigmaY: 24,
-                                          ),
-                                          child: Container(
-                                            width: double.infinity,
+                                    Container(
+                                      width: double.infinity,
                                             decoration: BoxDecoration(
                                               color: Colors.white.withValues(
                                                 alpha: 0.18,
@@ -255,130 +244,7 @@ class _StaffAuthScreenState extends State<StaffAuthScreen> {
                                                       loginMode: _loginMode,
                                                     ),
                                                     const SizedBox(height: 20),
-                                                    _loginMode
-                                                        ? const SizedBox.shrink()
-                                                        : Column(
-                                                            crossAxisAlignment:
-                                                                CrossAxisAlignment
-                                                                    .stretch,
-                                                            children: [
-                                                              const SizedBox(
-                                                                height: 12,
-                                                              ),
-                                                              const _FieldLabel(
-                                                                'First name',
-                                                              ),
-                                                              TextFormField(
-                                                                controller:
-                                                                    _firstName,
-                                                                autofocus: true,
-                                                                textCapitalization:
-                                                                    TextCapitalization
-                                                                        .words,
-                                                                textInputAction:
-                                                                    TextInputAction
-                                                                        .next,
-                                                                decoration:
-                                                                    _fieldDeco(
-                                                                      hint: 'Enter your first name',
-                                                                      icon: Icons
-                                                                          .person_outline_rounded,
-                                                                    ),
-                                                                validator:
-                                                                    _firstNameValidator,
-                                                              ),
-                                                              const SizedBox(
-                                                                height: 12,
-                                                              ),
-                                                              const _FieldLabel(
-                                                                'Middle name',
-                                                                required: false,
-                                                              ),
-                                                              TextFormField(
-                                                                controller:
-                                                                    _middleName,
-                                                                textCapitalization:
-                                                                    TextCapitalization
-                                                                        .words,
-                                                                textInputAction:
-                                                                    TextInputAction
-                                                                        .next,
-                                                                decoration:
-                                                                    _fieldDeco(
-                                                                      hint: 'Enter your middle name',
-                                                                      icon: Icons
-                                                                          .person_outline_rounded,
-                                                                    ),
-                                                                // Optional: no
-                                                                // validator.
-                                                              ),
-                                                              const SizedBox(
-                                                                height: 12,
-                                                              ),
-                                                              const _FieldLabel(
-                                                                'Last name',
-                                                              ),
-                                                              TextFormField(
-                                                                controller:
-                                                                    _lastName,
-                                                                textCapitalization:
-                                                                    TextCapitalization
-                                                                        .words,
-                                                                textInputAction:
-                                                                    TextInputAction
-                                                                        .next,
-                                                                decoration:
-                                                                    _fieldDeco(
-                                                                      hint: 'Enter your last name',
-                                                                      icon: Icons
-                                                                          .person_outline_rounded,
-                                                                    ),
-                                                                validator:
-                                                                    _lastNameValidator,
-                                                              ),
-                                                              const SizedBox(
-                                                                height: 12,
-                                                              ),
-                                                            ],
-                                                          ),
-                                                    _loginMode
-                                                        ? const SizedBox.shrink()
-                                                        : Column(
-                                                            crossAxisAlignment:
-                                                                CrossAxisAlignment
-                                                                    .stretch,
-                                                            children: [
-                                                              const SizedBox(
-                                                                height: 12,
-                                                              ),
-                                                              const _FieldLabel(
-                                                                'Staff type',
-                                                              ),
-                                                              ValueListenableBuilder<
-                                                                StaffType
-                                                              >(
-                                                                valueListenable:
-                                                                    _staffType,
-                                                                builder:
-                                                                    (
-                                                                      context,
-                                                                      type,
-                                                                      _,
-                                                                    ) => _StaffTypeSelector(
-                                                                      value:
-                                                                          type,
-                                                                      onChanged:
-                                                                          (
-                                                                            t,
-                                                                          ) => _staffType.value =
-                                                                              t,
-                                                                    ),
-                                                              ),
-                                                              const SizedBox(
-                                                                height: 12,
-                                                              ),
-                                                            ],
-                                                          ),
+                                                    if (_loginMode) const SizedBox.shrink() else _signUpPreUsernameFields(),
                                                     const SizedBox(height: 4),
                                                     const _FieldLabel(
                                                       'Username',
@@ -453,41 +319,7 @@ class _StaffAuthScreenState extends State<StaffAuthScreen> {
                                                         );
                                                       },
                                                     ),
-                                                    _loginMode
-                                                        ? const SizedBox.shrink()
-                                                        : Column(
-                                                            crossAxisAlignment:
-                                                                CrossAxisAlignment
-                                                                    .stretch,
-                                                            children: [
-                                                              const SizedBox(
-                                                                height: 12,
-                                                              ),
-                                                              const _FieldLabel(
-                                                                'Confirm password',
-                                                              ),
-                                                              ValueListenableBuilder<
-                                                                bool
-                                                              >(
-                                                                valueListenable:
-                                                                    _obscurePassword,
-                                                                builder: (context, obscured, _) => TextFormField(
-                                                                  controller:
-                                                                      _confirmation,
-                                                                  obscureText:
-                                                                      obscured,
-                                                                  decoration:
-                                                                      _fieldDeco(
-                                                                        hint: 'Re-enter password',
-                                                                        icon: Icons
-                                                                            .verified_user_outlined,
-                                                                      ),
-                                                                  validator:
-                                                                      _confirmationValidator,
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
+                                                    if (_loginMode) const SizedBox.shrink() else _signUpConfirmFields(),
                                                     const SizedBox(height: 18),
                                                     ValueListenableBuilder<
                                                       bool
@@ -627,10 +459,7 @@ class _StaffAuthScreenState extends State<StaffAuthScreen> {
                                               ),
                                             ),
                                           ),
-                                        ), // BackdropFilter
-                                      ), // ClipRRect
-                                    ), // RepaintBoundary
-                                  ], // Column children
+                                        ], // Column children
                                 ), // Column
                               ), // Padding
                             ), // Center
@@ -645,6 +474,85 @@ class _StaffAuthScreenState extends State<StaffAuthScreen> {
           ), // SafeArea
         ], // Stack children
       ),
+    );
+  }
+/// Sign-up-only fields shown above Username/Password in create mode.
+  ///
+  /// Lives in its own method so a mode toggle swaps a single node in the form
+  /// column instead of rebuilding the sign-up field graph in line.
+  Widget _signUpPreUsernameFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 12),
+        const _FieldLabel('First name'),
+        TextFormField(
+          controller: _firstName,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.next,
+          decoration: _fieldDeco(
+            hint: 'Enter your first name',
+            icon: Icons.person_outline_rounded,
+          ),
+          validator: _firstNameValidator,
+        ),
+        const SizedBox(height: 12),
+        const _FieldLabel('Middle name', required: false),
+        TextFormField(
+          controller: _middleName,
+          textCapitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.next,
+          decoration: _fieldDeco(
+            hint: 'Enter your middle name',
+            icon: Icons.person_outline_rounded,
+          ),
+        ),
+        const SizedBox(height: 12),
+        const _FieldLabel('Last name'),
+        TextFormField(
+          controller: _lastName,
+          textCapitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.next,
+          decoration: _fieldDeco(
+            hint: 'Enter your last name',
+            icon: Icons.person_outline_rounded,
+          ),
+          validator: _lastNameValidator,
+        ),
+        const SizedBox(height: 12),
+        const _FieldLabel('Staff type'),
+        ValueListenableBuilder<StaffType>(
+          valueListenable: _staffType,
+          builder: (context, type, _) => _StaffTypeSelector(
+            value: type,
+            onChanged: (t) => _staffType.value = t,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Sign-up-only Confirm-password field shown below the shared Password field.
+  Widget _signUpConfirmFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 12),
+        const _FieldLabel('Confirm password'),
+        ValueListenableBuilder<bool>(
+          valueListenable: _obscurePassword,
+          builder: (context, obscured, _) => TextFormField(
+            controller: _confirmation,
+            obscureText: obscured,
+            decoration: _fieldDeco(
+              hint: 'Re-enter password',
+              icon: Icons.verified_user_outlined,
+            ),
+            validator: _confirmationValidator,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -716,9 +624,9 @@ class _CanopyPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rng = Random(1407);
 
-    // Soft dark mounds — individual tree crowns filling the upper field.
+    // Soft dark mounds â€” individual tree crowns filling the upper field.
     final mound = Paint()..color = const Color(0x12000703);
-    for (var i = 0; i < 44; i++) {
+    for (var i = 0; i < 28; i++) {
       final cx = rng.nextDouble() * size.width;
       final cy = rng.nextDouble() * size.height * 0.70;
       final radius = 48 + rng.nextDouble() * 104;
@@ -727,7 +635,7 @@ class _CanopyPainter extends CustomPainter {
 
     // Pale-green crowns clustered upper-centre-left (the light cluster).
     final pale = Paint()..color = const Color(0x244C8A47);
-    for (var i = 0; i < 16; i++) {
+    for (var i = 0; i < 10; i++) {
       final cx = size.width * (0.08 + rng.nextDouble() * 0.36);
       final cy = size.height * (0.08 + rng.nextDouble() * 0.34);
       final radius = 44 + rng.nextDouble() * 72;
@@ -736,7 +644,7 @@ class _CanopyPainter extends CustomPainter {
 
     // Soft lime glints scattered like sunlight reflecting on leaves.
     final glint = Paint()..color = const Color(0x33B5EA87);
-    for (var i = 0; i < 84; i++) {
+    for (var i = 0; i < 54; i++) {
       final cx = rng.nextDouble() * size.width;
       final cy = rng.nextDouble() * size.height * 0.76;
       canvas.drawCircle(Offset(cx, cy), 1.0 + rng.nextDouble() * 2.4, glint);
@@ -744,7 +652,7 @@ class _CanopyPainter extends CustomPainter {
 
     // A few firmer lime dots for texture detail.
     final dot = Paint()..color = const Color(0x4DB5EA87);
-    for (var i = 0; i < 22; i++) {
+    for (var i = 0; i < 14; i++) {
       final cx = rng.nextDouble() * size.width;
       final cy = rng.nextDouble() * size.height * 0.72;
       canvas.drawCircle(Offset(cx, cy), 1.0 + rng.nextDouble() * 1.5, dot);
@@ -848,6 +756,11 @@ class _LogoBadge extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.cover,
+        // Decode at 2Ã— the rendered badge size instead of the source
+        // resolution: `ecotrace_icon.png` is 1024Ã—1024 (~4 MB RGBA decoded)
+        // and is only ever drawn at 52â€“64 logical px.
+        cacheWidth: (size * 2).round(),
+        cacheHeight: (size * 2).round(),
       ),
     );
   }

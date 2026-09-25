@@ -53,7 +53,7 @@ void main() {
     expect(find.text('GOOD MORNING!'), findsOneWidget);
   });
 
-  testWidgets('keeps the shell usable at a phone-sized viewport', (
+  testWidgets('opens field progress from the center action and stays usable', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(360, 780);
@@ -62,13 +62,19 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(const MaterialApp(home: AppShell()));
-    expect(find.byTooltip('Start tree verification'), findsOneWidget);
+    expect(find.byTooltip('View field progress'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Start tree verification'));
+    await tester.tap(find.byTooltip('View field progress'));
     await tester.pumpAndSettle();
-    expect(find.text('Scan NFC or QR tag'), findsOneWidget);
-    await tester.tap(find.byTooltip('Close scanner'));
+    expect(find.text('Field progress'), findsOneWidget);
+    expect(find.text('55%'), findsOneWidget);
+    expect(find.text('2,195 of 4,000'), findsOneWidget);
+    expect(find.text('Arbor Day Drive 2026'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byTooltip('Back to events'));
     await tester.pumpAndSettle();
+    expect(find.text('Today\'s schedule'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.person_outline_rounded));
     await tester.pump();
@@ -77,7 +83,7 @@ void main() {
     expect(find.text('Sync dashboard'), findsOneWidget);
   });
 
-  testWidgets('keeps the shell usable on a compact Android viewport', (
+  testWidgets('keeps field progress usable on a compact Android viewport', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(320, 568);
@@ -86,11 +92,24 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(const MaterialApp(home: AppShell()));
-    expect(find.text('Today\'s schedule'), findsOneWidget);
-    await tester.tap(find.byIcon(Icons.map_outlined));
-    await tester.pump(const Duration(milliseconds: 250));
-    expect(find.text('UEP Catarman · Streets'), findsOneWidget);
-    expect(find.text('TRE-0892'), findsOneWidget);
+    await tester.tap(find.byTooltip('View field progress'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Field progress'), findsOneWidget);
+    expect(find.text('55%'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.scrollUntilVisible(
+      find.text('Campus Reforestation Q2'),
+      220,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('monitoring-progress-list')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Campus Reforestation Q2'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('filters the real map and routes to incident reporting', (
@@ -188,12 +207,23 @@ void main() {
     expect(find.text('Verification feedback review'), findsOneWidget);
   });
 
-  testWidgets('validates and saves a manual verification draft', (
+  testWidgets('validates and saves a manual verification draft from a tree', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: AppShell()));
-    await tester.tap(find.byTooltip('Start tree verification'));
+
+    // Verification is contextual: open the map, select a tree, then start
+    // verification from its details sheet.
+    await tester.tap(find.byIcon(Icons.map_outlined));
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.tap(find.text('TRE-1508'));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('SELECTED TREE'), findsOneWidget);
+    await tester.ensureVisible(find.text('Start Verification'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Start Verification'));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('Enter tree details manually'));
     await tester.pumpAndSettle();
 
@@ -255,30 +285,36 @@ void main() {
   // deterministically. The connectivity_plus platform channel is mocked
   // because an unmocked channel never settles in the widget-test runner.
 
-  testWidgets('shows offline dialog at launch when offline', (
+  testWidgets('launches offline with no modal and reports the status', (
     WidgetTester tester,
   ) async {
     _mockConnectivity(tester, ['none']);
     final controller = ConnectivityController();
-    final navigatorKey = GlobalKey<NavigatorState>();
     final messengerKey = GlobalKey<ScaffoldMessengerState>();
 
     await tester.pumpWidget(
-      _connectivityHarness(
-        controller: controller,
-        navigatorKey: navigatorKey,
-        messengerKey: messengerKey,
-      ),
+      _connectivityHarness(controller: controller, messengerKey: messengerKey),
     );
     await tester.pump();
     await tester.pumpAndSettle();
 
-    expect(find.text('No internet connection'), findsOneWidget);
-    expect(find.text('OK'), findsOneWidget);
-
-    await tester.tap(find.text('OK'));
-    await tester.pumpAndSettle();
+    // No modal or notice interrupts the launch while offline.
     expect(find.text('No internet connection'), findsNothing);
+    expect(find.text('OK'), findsNothing);
+
+    // The startup status is still resolved - the map header reports offline.
+    await tester.tap(find.byIcon(Icons.map_outlined));
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.text('Offline'), findsOneWidget);
+
+    // A later offline -> online transition still raises the banner.
+    controller.value = ConnectionStatus.online;
+    await tester.pump();
+    expect(find.text('Internet Connected'), findsOneWidget);
+
+    // Let the snack bar auto-dismiss so no timers remain pending.
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle(const Duration(milliseconds: 100));
   });
 
   testWidgets(
@@ -286,13 +322,11 @@ void main() {
     (WidgetTester tester) async {
       _mockConnectivity(tester, ['wifi']);
       final controller = ConnectivityController();
-      final navigatorKey = GlobalKey<NavigatorState>();
       final messengerKey = GlobalKey<ScaffoldMessengerState>();
 
       await tester.pumpWidget(
         _connectivityHarness(
           controller: controller,
-          navigatorKey: navigatorKey,
           messengerKey: messengerKey,
         ),
       );
@@ -334,16 +368,17 @@ void main() {
 /// from a clean messenger.
 void _mockConnectivity(WidgetTester tester, List<String> results) {
   const channel = MethodChannel('dev.fluttercommunity.plus/connectivity');
-  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-    channel,
-    (MethodCall call) async {
-      if (call.method == 'check') return results;
-      return null;
-    },
-  );
+  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+    MethodCall call,
+  ) async {
+    if (call.method == 'check') return results;
+    return null;
+  });
   addTearDown(() {
-    tester.binding.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, null);
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      channel,
+      null,
+    );
   });
 }
 
@@ -351,19 +386,16 @@ void _mockConnectivity(WidgetTester tester, List<String> results) {
 /// but with a controllable controller and [AppShell] as the landing screen.
 Widget _connectivityHarness({
   required ConnectivityController controller,
-  required GlobalKey<NavigatorState> navigatorKey,
   required GlobalKey<ScaffoldMessengerState> messengerKey,
 }) {
   return MaterialApp(
     theme: EcoTraceTheme.light,
-    navigatorKey: navigatorKey,
     scaffoldMessengerKey: messengerKey,
     home: const AppShell(),
     builder: (context, child) => AppConnectivityScope(
       notifier: controller,
       child: ConnectivityBannerHost(
         controller: controller,
-        navigatorKey: navigatorKey,
         messengerKey: messengerKey,
         child: child ?? const SizedBox.shrink(),
       ),

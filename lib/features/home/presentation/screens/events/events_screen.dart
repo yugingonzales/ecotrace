@@ -65,6 +65,14 @@ class _EventsScreenState extends State<EventsScreen> {
 
   static const int _currentDay = 6;
 
+  /// Lowercase search text (title + location + description) per event,
+  /// computed once at class load instead of rebuilt on every `_visibleEvents`.
+  static final Map<String, String> _searchText = {
+    for (final event in _events)
+      event.id: '${event.title} ${event.location} ${event.description}'
+          .toLowerCase(),
+  };
+
   final _stripController = ScrollController();
 
   int _selectedDay = _currentDay;
@@ -79,10 +87,9 @@ class _EventsScreenState extends State<EventsScreen> {
   List<LocalEvent> get _visibleEvents {
     return _events.where((event) {
       final matchesDay = event.day == _selectedDay;
-      final searchable =
-          '${event.title} ${event.location} ${event.description}'.toLowerCase();
       final matchesQuery =
-          _query.isEmpty || searchable.contains(_query.toLowerCase());
+          _query.isEmpty ||
+          _searchText[event.id]!.contains(_query.toLowerCase());
       final matchesJoined = !_joinedOnly || _joinedEvents.contains(event.id);
       return matchesDay && matchesQuery && matchesJoined;
     }).toList();

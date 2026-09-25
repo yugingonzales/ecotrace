@@ -7,13 +7,13 @@ class BottomNavigation extends StatelessWidget {
   const BottomNavigation({
     required this.selectedIndex,
     required this.onSelected,
-    required this.onScan,
+    required this.onProgress,
     super.key,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
-  final VoidCallback onScan;
+  final VoidCallback onProgress;
 
   @override
   Widget build(BuildContext context) {
@@ -57,15 +57,18 @@ class BottomNavigation extends StatelessWidget {
                   width: compact ? 52 : 64,
                   height: compact ? 52 : 64,
                   child: FloatingActionButton(
-                    onPressed: onScan,
+                    onPressed: onProgress,
                     backgroundColor: EcoTraceColors.lemon,
                     foregroundColor: EcoTraceColors.forest,
                     elevation: 8,
                     shape: const CircleBorder(
                       side: BorderSide(color: Colors.white, width: 4),
                     ),
-                    tooltip: 'Start tree verification',
-                    child: Icon(Icons.add_rounded, size: compact ? 30 : 38),
+                    tooltip: 'View field progress',
+                    child: Icon(
+                      Icons.insights_rounded,
+                      size: compact ? 24 : 28,
+                    ),
                   ),
                 ),
               ),

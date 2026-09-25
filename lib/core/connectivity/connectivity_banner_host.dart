@@ -8,11 +8,12 @@ import 'connectivity_controller.dart';
 
 /// Renders global network notices above every route of the app.
 ///
-/// - Startup resolves offline → non-dismissable-by-background "No internet
-///   connection" dialog.
 /// - offline → online transition → short "Internet Connected" snack bar.
 /// - online → offline transition while running → "No internet connection"
 ///   snack bar.
+/// Startup connectivity is resolved silently (no dialog); the status simply
+/// seeds the map header / sync indicators, and the first transition after
+/// launch raises a snack bar.
 ///
 /// Lives in `MaterialApp.builder` (above the Navigator) so the notices cover
 /// the splash screen, auth flow, shell, and every pushed route.
@@ -20,13 +21,11 @@ class ConnectivityBannerHost extends StatefulWidget {
   const ConnectivityBannerHost({
     super.key,
     required this.controller,
-    required this.navigatorKey,
     required this.messengerKey,
     required this.child,
   });
 
   final ConnectivityController controller;
-  final GlobalKey<NavigatorState> navigatorKey;
   final GlobalKey<ScaffoldMessengerState> messengerKey;
   final Widget child;
 
@@ -58,9 +57,6 @@ class _ConnectivityBannerHostState extends State<ConnectivityBannerHost> {
     if (!mounted) return;
     _startupResolved = true;
     _previous = widget.controller.value;
-    if (_previous == ConnectionStatus.offline) {
-      await _showStartupDialog();
-    }
   }
 
   void _onStatusChanged() {
@@ -74,57 +70,6 @@ class _ConnectivityBannerHostState extends State<ConnectivityBannerHost> {
     } else if (current == ConnectionStatus.online && wasOffline) {
       _showConnectedNotice();
     }
-  }
-
-  Future<void> _showStartupDialog() async {
-    await WidgetsBinding.instance.endOfFrame;
-    if (!mounted) return;
-    final navigator = widget.navigatorKey.currentState;
-    if (navigator == null) return;
-    await showDialog<void>(
-      context: navigator.context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: EcoTraceColors.field,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        icon: Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            color: EcoTraceColors.error.withValues(alpha: 0.12),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(
-            Icons.wifi_off_rounded,
-            color: EcoTraceColors.error,
-            size: 28,
-          ),
-        ),
-        title: const Text(
-          'No internet connection',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-        ),
-        content: const Text(
-          'Connect to the internet to load the campus map '
-          'and keep your records in sync.',
-          style: TextStyle(color: EcoTraceColors.muted, fontSize: 13.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text(
-              'OK',
-              style: TextStyle(
-                color: EcoTraceColors.forest,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   void _showConnectedNotice() {

@@ -208,16 +208,15 @@ class _MapCanvasState extends State<MapCanvas> {
                     left: 40,
                     top: 42,
                   ),
-                  // Each marker is its own raster layer: during a camera pan
-                  // the compositor reuses the cached marker paintings instead
-                  // of re-drawing all 24 shadows + labels every frame.
-                  child: RepaintBoundary(
-                    child: TreeMarker(
-                      code: tree.id,
-                      color: tree.color,
-                      selected: selectedTreeId == tree.id,
-                      onTap: () => onTreeSelected(tree),
-                    ),
+                  // TreeMarker already wraps itself in a RepaintBoundary (see
+                  // tree_marker.dart), so each marker is its own cached raster
+                  // layer during camera pans. An extra boundary here would only
+                  // add a redundant compositing layer per marker.
+                  child: TreeMarker(
+                    code: tree.id,
+                    color: tree.color,
+                    selected: selectedTreeId == tree.id,
+                    onTap: () => onTreeSelected(tree),
                   ),
                 ),
               Marker(

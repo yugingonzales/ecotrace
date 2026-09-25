@@ -139,6 +139,12 @@ class _SplashScreenState extends State<SplashScreen>
               'lib/assets/icons/ecotrace_icon.png',
               width: 160,
               height: 160,
+              // Source is a 1024×1024 PNG; decode at 2× the display size so
+              // HiDPI screens stay sharp without holding a 4 MB RGBA buffer
+              // (full-res decode) just to draw a 160 px icon.
+              cacheWidth: 320,
+              cacheHeight: 320,
+              filterQuality: FilterQuality.medium,
             ),
           ),
         );

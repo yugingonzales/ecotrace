@@ -59,7 +59,6 @@ class _EcoTraceAppState extends State<EcoTraceApp> {
         notifier: _connectivity,
         child: ConnectivityBannerHost(
           controller: _connectivity,
-          navigatorKey: _navigatorKey,
           messengerKey: _messengerKey,
           child: child ?? const SizedBox.shrink(),
         ),

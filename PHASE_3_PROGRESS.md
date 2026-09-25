@@ -66,14 +66,14 @@ Leaflet-style map driven by the admin portal's authoritative tree inventory.
     status rebuild on a flips.
   - `connectivity_banner_host.dart` — global notice host wired through
     `MaterialApp.builder` above the Navigator:
-    - Startup offline → non-dismissable-by-background "No internet
-      connection" dialog (waits for `endOfFrame` so the Navigator exists).
+    - Startup offline → resolved silently (no dialog) — the launch
+      flow is never interrupted.
     - online → offline while running → error snack bar.
     - offline → online → "Internet Connected" snack bar.
 - `main.dart` refactor: `EcoTraceApp` is now a `StatefulWidget` owning (or
-  receiving, for tests) the controller plus `navigatorKey`/
-  `scaffoldMessengerKey`; its `MaterialApp.builder` wraps `AppConnectivityScope`
-  → `ConnectivityBannerHost` → child.
+  receiving, for tests) the connectivity controller and a
+  `scaffoldMessengerKey` for snack bars; its `MaterialApp.builder` wraps
+  `AppConnectivityScope` → `ConnectivityBannerHost` → child.
 - `MapHeader` gained `isOnline` and renders a lime/error dot + `Online`/
   `Offline` label; `MapScreen` reads status via `AppConnectivityScope`.
 - Debugging note: `connectivity_plus`'s `MethodChannelConnectivity` calls the
@@ -133,8 +133,9 @@ Leaflet-style map driven by the admin portal's authoritative tree inventory.
   reproduces the real `EcoTraceApp.builder` wiring with an injectable
   controller; a channel mock stubs the connectivity platform.
 - New connectivity tests:
-  - Offline at launch → "No internet connection" dialog appears above the
-    shell and dismisses via `OK`.
+  - Offline at launch → no modal or notice at startup; the status still
+    resolves (the map header reports `Offline`) and the first
+    offline→online transition still raises the connected banner.
   - Connectivity transitions → map header flips `Online` ↔ `Offline` and the
     snack bars raise/lower on offline→online and online→offline.
 
@@ -152,8 +153,8 @@ flutter build apk --debug  # app-debug.apk built
 The Map tab is now a real, zoomable, filterable campus map backed by the same
 tree inventory as the admin portal. Tile loading requires network access
 (`INTERNET` permission added), and the app now tracks connectivity globally:
-it seeds the status at startup, shows a blocking offline dialog when launched
-without a connection, raises/lowers "connected"/"offline" snack bars on
+it resolves the status silently at startup (no blocking dialog when launched
+offline), raises/lowers "connected"/"offline" snack bars only on
 transitions, and the map header reflects the live status. Trees, zones, and
 statuses remain locally seeded from the admin portal dataset; there is still no
 backend synchronization, GPS locking, or live status updates.
@@ -162,5 +163,5 @@ backend synchronization, GPS locking, or live status updates.
 
 Confirm the interactive map + connectivity behavior on a device (tile loading
 over the network, satellite toggle, filter counts, bottom-sheet actions,
-airplane-mode transition dialogs/snack bars) before moving to backend-connected
+airplane-mode transition snackbars) before moving to backend-connected
 verification and synchronization flows.

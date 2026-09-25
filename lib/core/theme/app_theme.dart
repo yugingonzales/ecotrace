@@ -17,7 +17,10 @@ abstract final class EcoTraceColors {
 }
 
 abstract final class EcoTraceTheme {
-  static ThemeData get light {
+  /// Single shared light theme instance (built once, immutable thereafter).
+  static final ThemeData light = _buildLight();
+
+  static ThemeData _buildLight() {
     final base = ThemeData.light(useMaterial3: true);
     return base.copyWith(
       scaffoldBackgroundColor: EcoTraceColors.canvas,
