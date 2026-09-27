@@ -1,9 +1,46 @@
-enum PlantStatus { healthy, atRisk, damaged, missing, unknown }
+/// Observational status of a plant, as recorded by a field officer.
+///
+/// Deliberately describes *presence and condition only* — it is not a
+/// healthiness or vitality assessment. [alive] means the plant is standing and
+/// observable; nothing here implies it is thriving.
+enum PlantStatus { alive, damaged, dead, missing }
+
+extension PlantStatusX on PlantStatus {
+  /// Field-facing label, using the vocabulary the monitoring team uses.
+  String get label => switch (this) {
+    PlantStatus.alive => 'Alive',
+    PlantStatus.damaged => 'Damaged',
+    PlantStatus.dead => 'Dead',
+    PlantStatus.missing => 'Missing',
+  };
+
+  /// Longer explanation shown under the label while choosing.
+  String get description => switch (this) {
+    PlantStatus.alive => 'Standing and observable',
+    PlantStatus.damaged => 'Standing, but visibly broken or harmed',
+    PlantStatus.dead => 'Standing but no longer alive',
+    PlantStatus.missing => 'No plant found at the recorded location',
+  };
+
+  /// A missing plant cannot be measured or photographed, so the wizard skips
+  /// both the measurement and the evidence steps for it.
+  ///
+  /// This is a domain rule, not a UI nicety: requiring a photo of a tree that
+  /// is not there would train staff to fabricate evidence.
+  bool get requiresEvidence => this != PlantStatus.missing;
+
+  bool get requiresMeasurements => this != PlantStatus.missing;
+}
 
 enum VerificationStatus { draft, pending, verified, rejected, conflict }
 
 enum MeasurementSource { automated, manual, corrected }
 
+/// A completed field verification of one tree.
+///
+/// Immutable: a verification is a record of what an officer observed at a
+/// moment in time, so a later correction produces a new record rather than
+/// mutating the old one.
 class TreeRecord {
   const TreeRecord({
     required this.treeId,
@@ -11,15 +48,16 @@ class TreeRecord {
     required this.species,
     required this.latitude,
     required this.longitude,
-    required this.dbh,
-    required this.crownDimension,
     required this.plantStatus,
     required this.verificationStatus,
     required this.measurementSource,
+    this.dbhCm,
+    this.crownDimensionCm,
     this.notes,
-    this.photoEvidence,
+    this.photoEvidence = const [],
     this.verifiedByStaffId,
     this.verifiedAt,
+    this.distanceFromTreeMeters,
   });
 
   final String treeId;
@@ -27,13 +65,27 @@ class TreeRecord {
   final String species;
   final double latitude;
   final double longitude;
-  final double dbh;
-  final double crownDimension;
+
+  /// Null when [plantStatus] is [PlantStatus.missing] — there was nothing to
+  /// measure, and a number would be a fabrication rather than an observation.
+  final double? dbhCm;
+
+  /// Null when [plantStatus] is [PlantStatus.missing], for the same reason.
+  final double? crownDimensionCm;
+
   final PlantStatus plantStatus;
   final VerificationStatus verificationStatus;
   final MeasurementSource measurementSource;
   final String? notes;
-  final String? photoEvidence;
+
+  /// File paths of the camera captures. Empty for a missing plant.
+  final List<String> photoEvidence;
+
   final String? verifiedByStaffId;
   final DateTime? verifiedAt;
+
+  /// How far the officer stood from the tree when the record was created.
+  /// Kept so a later reviewer can judge whether the measurement was taken from
+  /// within the allowed radius.
+  final double? distanceFromTreeMeters;
 }

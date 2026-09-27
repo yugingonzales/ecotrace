@@ -1,7 +1,7 @@
 class LocalEvent {
   const LocalEvent({
     required this.id,
-    required this.day,
+    required this.date,
     required this.time,
     required this.title,
     required this.location,
@@ -11,7 +11,12 @@ class LocalEvent {
   });
 
   final String id;
-  final int day;
+
+  /// The calendar day the activity runs on. A real date rather than a
+  /// day-of-month, so an event can never be stranded in the wrong month
+  /// or year — the failure mode of a bare `int day`.
+  final DateTime date;
+
   final String time;
   final String title;
   final String location;

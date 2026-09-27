@@ -74,7 +74,7 @@ The current implementation contains:
 - Responsive layout tuning for compact Android screens, including adaptive navigation and auth branding.
 - Functional offline Events tab with local schedule actions and search/filter behavior.
 - Events tab now collapses the calendar strip while scrolling the schedule (restored only at the top) and issues a three-second participation receipt after a confirmed check-in. See `EVENTS_EXPERIENCE_PROGRESS.md`.
-- Functional offline manual tree-verification draft form aligned with `TREE_RECORD` fields.
+- Functional offline manual tree-verification draft form aligned with `TREE_RECORD` fields. (Superseded by the verification wizard — see `FUNCTIONALITY_PHASES.md`; the old sheet is still reachable from the tag scanner.)
 - Enlarged floating tree-verification action with responsive compact-phone sizing.
 - Realistic offline field-map presentation with terrain, roads, parcels, water, and pin markers.
 - Phase 2 frontend notes in `PHASE_2_PROGRESS.md`.
@@ -82,10 +82,12 @@ The current implementation contains:
 - Esri World Imagery satellite layer toggle in the map header.
 - All 23 georeferenced admin `TRE-*` trees (real lat/lng) with admin zone/status vocabulary and marker colors.
 - Zone chips and status filter panel with live inventory counts.
-- Bottom-sheet tree details: species, zone, planter, planted date, coordinates, status, `Start Verification` (opens the scanner) and `Report incident` (opens the linked incident form).
+- Bottom-sheet tree details: species, zone, planter, planted date, coordinates, status, `Start Verification` (runs a 5 m proximity check, then the analysis-mode choice and the verification wizard) and `Report incident` (opens the linked incident form).
 - Replaced the synthetic CustomPaint grid (deleted `field_map_painter.dart` and `map_label.dart`); left-over `T-*` mock tags updated to admin `TRE-*` tags.
 - `INTERNET` permission added to the Android manifest for map tile downloads.
-- Phase 3 notes in `PHASE_3_PROGRESS.md`.
+- **On-site tree verification** (Phase 3, 2026-09-27): GPS proximity gate, manual/automatic analysis choice, and a 4-step wizard — plant status (alive / damaged / dead / missing) → DBH and crown measurements → 3–5 camera photos → review. Automatic analysis is present but not functional. Records are not yet persisted; they are lost on app restart. See `FUNCTIONALITY_PHASES.md`.
+- `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION` and `CAMERA` permissions added to the Android manifest for the proximity gate and camera evidence.
+- Phase 3 notes in `PHASE_3_PROGRESS.md` (historical — that Phase 3 was redefined and deferred).
 
 ### Intentional Preview Limitations
 

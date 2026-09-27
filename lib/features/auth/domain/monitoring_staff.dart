@@ -1,12 +1,12 @@
-enum StaffType { intern, paidVolunteer, staff }
+enum StaffType { intern, volunteer, staff }
 
 extension StaffTypeLabel on StaffType {
   String get label {
     switch (this) {
       case StaffType.intern:
         return 'Intern';
-      case StaffType.paidVolunteer:
-        return 'Paid volunteer';
+      case StaffType.volunteer:
+        return 'Volunteer';
       case StaffType.staff:
         return 'Staff';
     }

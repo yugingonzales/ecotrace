@@ -55,6 +55,11 @@ Legend: ⏳ pending · 🔧 applied (code changed) · ✅ verified (gates green)
 
 ## Verification log
 
+> The `11/11` entries below are the counts **at the time each row was written**.
+> The suite is now **26 passing** (`flutter analyze` clean, 2026-09-27) after the
+> monitoring-progress and Phase 2 connectivity tests were added. Historical rows
+> are left unedited so the audit trail stays honest.
+
 | Run | Result |
 |-----|--------|
 | Baseline (before audit) | `flutter analyze` clean; `flutter test` 11/11 |
@@ -62,4 +67,6 @@ Legend: ⏳ pending · 🔧 applied (code changed) · ✅ verified (gates green)
 | After P1-1 `_LazyTab` v2 (active-gated) | `flutter analyze` clean; `flutter test` 11/11 |
 | Probe (laziness proof) | startup `MapScreen` mounted=0; after Map tap mounted=1 onstage=1; after leaving, still mounted (state kept) |
 | After P3-2…P3-4 | `flutter analyze` clean; `flutter test` 11/11 |
+| After audit re-baseline | `flutter analyze` clean; `flutter test` **22/22** (docs previously claimed 11) |
+| **Phase 2 — honest connectivity** | `flutter analyze` clean; `flutter test` **26/26** (+4 reachability tests) |
 | Phase 5 — device frame timings | **blocked — no hardware available**; run `flutter run --profile` + DevTools timeline (typing / mode toggle / tab switch / map pan) before→after once a device is attached |

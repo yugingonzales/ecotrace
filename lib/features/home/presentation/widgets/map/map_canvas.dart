@@ -25,6 +25,7 @@ class MapCanvas extends StatefulWidget {
     required this.selectedTreeId,
     required this.onTreeSelected,
     required this.onMapTap,
+    this.trees,
   });
 
   final MapController mapController;
@@ -44,6 +45,11 @@ class MapCanvas extends StatefulWidget {
   final ValueChanged<MapTree> onTreeSelected;
 
   final VoidCallback onMapTap;
+
+  /// Trees to render. Defaults to the static [campusTrees] inventory; the
+  /// parent passes an updated list when a field verification changes a tree's
+  /// status in-session, since the inventory itself is a compile-time const.
+  final List<MapTree>? trees;
 
   @override
   State<MapCanvas> createState() => _MapCanvasState();
@@ -86,7 +92,7 @@ class _MapCanvasState extends State<MapCanvas> {
     ),
   );
 
-  List<MapTree> get _visibleTrees => campusTrees
+  List<MapTree> get _visibleTrees => (widget.trees ?? campusTrees)
       .where(
         (tree) => widget.zoneFilter == null || tree.zone == widget.zoneFilter,
       )

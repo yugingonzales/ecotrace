@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../../core/date/app_date.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../models/local_event.dart';
 
@@ -157,7 +158,10 @@ class ParticipationReceiptCard extends StatelessWidget {
                   // Time is what the user most needs at a glance, so it leads
                   // the detail rows as a pill instead of sharing the muted
                   // icon-row treatment everything below it uses.
-                  _TimePill(label: 'Sep ${event.day} · ${event.time}'),
+                  _TimePill(
+                    label:
+                        '${AppDate.scheduleHeading(event.date)} · ${event.time}',
+                  ),
                   _ReceiptRow(
                     icon: Icons.location_on_outlined,
                     text: event.location,

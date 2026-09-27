@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/date/app_date.dart';
 import '../../../../../core/theme/app_theme.dart';
+import '../../models/field_event_seed.dart';
 import '../../models/local_event.dart';
 import '../../widgets/events/calendar_strip.dart';
 import '../../widgets/events/empty_events_state.dart';
@@ -20,52 +22,25 @@ class EventsScreen extends StatefulWidget {
 
 class _EventsScreenState extends State<EventsScreen>
     with SingleTickerProviderStateMixin {
-  static const _events = [
-    LocalEvent(
-      id: 'tree-tagging',
-      day: 6,
-      time: '08:00 AM - 11:30 AM',
-      title: 'Tree planting & tagging',
-      location: 'Sector 4 Reforestation Zone',
-      description: 'Field tagging mission for native tree saplings. Bring your mobile tag verification app logged in.',
-      attendeeCount: 18,
-    ),
-    LocalEvent(
-      id: 'health-survey',
-      day: 6,
-      time: '01:30 PM - 03:00 PM',
-      title: 'Sector 4 health survey',
-      location: 'North Quadrant Field Station',
-      description: 'Canopy inspection and growth rate measurements for assigned monitoring teams.',
-      attendeeCount: 12,
-      warm: true,
-    ),
-    LocalEvent(
-      id: 'audit-review',
-      day: 7,
-      time: '09:00 AM - 10:30 AM',
-      title: 'Verification feedback review',
-      location: 'EcoTrace Field Office',
-      description: 'Review returned audit feedback and resolve tree records that need a second verification pass.',
-      attendeeCount: 7,
-    ),
-    LocalEvent(
-      id: 'canopy-check',
-      day: 8,
-      time: '10:00 AM - 12:00 PM',
-      title: 'North quadrant canopy check',
-      location: 'North Quadrant Field Station',
-      description: 'Follow-up measurements for trees flagged as at risk in the latest audit cycle.',
-      attendeeCount: 9,
-      warm: true,
-    ),
-  ];
+  /// Schedule is generated once per mount from the device's current date, so
+  /// the agenda is always populated and always forward-looking.
+  late final List<LocalEvent> _events = buildFieldEventSeed();
 
-  static const int _currentDay = 6;
+  late DateTime _selectedDay = AppDate.dayOf(
+    _events.isEmpty ? DateTime.now() : _events.first.date,
+  );
+
+  /// The strip is a rolling window anchored on today, so it can never show a
+  /// stale month and always offers the days the seed data lands on.
+  late final DateTime _stripStart = AppDate.dayOf(DateTime.now());
+
+  /// Six weeks of selectable days — long enough to cover the generated
+  /// schedule and a week of browsing, short enough to stay cheap to lay out.
+  static const int _stripSpan = 42;
 
   /// Lowercase search text (title + location + description) per event,
-  /// computed once at class load instead of rebuilt on every `_visibleEvents`.
-  static final Map<String, String> _searchText = {
+  /// computed once instead of rebuilt on every `_visibleEvents` pass.
+  late final Map<String, String> _searchText = {
     for (final event in _events)
       event.id: '${event.title} ${event.location} ${event.description}'
           .toLowerCase(),
@@ -94,18 +69,29 @@ class _EventsScreenState extends State<EventsScreen>
   bool _stripCollapsed = false;
   double _lastListPixels = 0;
 
-  int _selectedDay = _currentDay;
   String _query = '';
   bool _joinedOnly = false;
   final _joinedEvents = <String>{};
 
-  List<int> get _daysWithEvents {
-    return _events.map((e) => e.day).toSet().toList();
-  }
+  /// Distinct days that actually have activities, as real dates.
+  List<DateTime> get _daysWithEvents => _events
+      .map((event) => AppDate.dayOf(event.date))
+      .toSet()
+      .toList()
+    ..sort();
 
+  /// Every event on the selected day, ignoring the search and joined-only
+  /// filters. The header count reflects what's actually scheduled rather than
+  /// how many survived filtering.
+  List<LocalEvent> get _eventsForSelectedDay => _events
+      .where((event) => AppDate.isSameDay(event.date, _selectedDay))
+      .toList();
+
+  /// Events scheduled on the selected day that also satisfy the active
+  /// search and joined-only filters.
   List<LocalEvent> get _visibleEvents {
     return _events.where((event) {
-      final matchesDay = event.day == _selectedDay;
+      final matchesDay = AppDate.isSameDay(event.date, _selectedDay);
       final matchesQuery =
           _query.isEmpty ||
           _searchText[event.id]!.contains(_query.toLowerCase());
@@ -132,9 +118,9 @@ class _EventsScreenState extends State<EventsScreen>
 
   /// Returns the list to the top for a newly chosen day, which also brings
   /// the collapsed calendar strip back into view.
-  void _selectDay(int day) {
-    setState(() => _selectedDay = day);
-    _scrollToDay(day);
+  void _selectDay(DateTime day) {
+    setState(() => _selectedDay = AppDate.dayOf(day));
+    _scrollToDay(_selectedDay);
     if (_listController.hasClients) {
       _listController.animateTo(
         0,
@@ -145,14 +131,16 @@ class _EventsScreenState extends State<EventsScreen>
   }
 
   /// Glides the strip so the given day is centered in the visible viewport.
-  void _scrollToDay(int day) {
+  void _scrollToDay(DateTime day) {
     if (!_stripController.hasClients) return;
     const itemWidth = 56.0;
     const spacing = 4.0;
     final viewport = _stripController.position.viewportDimension;
     final maxExtent = _stripController.position.maxScrollExtent;
-    final desire =
-        (day - 1) * (itemWidth + spacing) + itemWidth / 2 - viewport / 2;
+    // The strip window starts today, so a day's offset within it is the same
+    // as the offset of the date itself.
+    final index = AppDate.daysBetween(_stripStart, day).clamp(0, _stripSpan);
+    final desire = index * (itemWidth + spacing) + itemWidth / 2 - viewport / 2;
     final target = desire.clamp(0.0, maxExtent).toDouble();
     _stripController.animateTo(
       target,
@@ -163,7 +151,7 @@ class _EventsScreenState extends State<EventsScreen>
 
   /// Pull-to-refresh: jumps back to the current day and re-centers the strip.
   Future<void> _refresh() async {
-    setState(() => _selectedDay = _currentDay);
+    setState(() => _selectedDay = _stripStart);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _scrollToDay(_selectedDay);
     });
@@ -369,7 +357,8 @@ class _EventsScreenState extends State<EventsScreen>
             ),
             _ConfirmationDetail(
               icon: Icons.schedule_rounded,
-              text: 'Sep ${event.day} · ${event.time}',
+              text:
+                  '${AppDate.scheduleHeading(event.date)} · ${event.time}',
             ),
             _ConfirmationDetail(
               icon: Icons.location_on_outlined,
@@ -417,6 +406,8 @@ class _EventsScreenState extends State<EventsScreen>
   @override
   Widget build(BuildContext context) {
     final visibleEvents = _visibleEvents;
+    final selectedHeading = AppDate.scheduleHeading(_selectedDay);
+    final dayEventCount = _eventsForSelectedDay.length;
 
     return Column(
       children: [
@@ -460,8 +451,12 @@ class _EventsScreenState extends State<EventsScreen>
                             ),
                             SizedBox(height: 2),
                             Text(
-                              'Today\'s schedule',
-                              style: TextStyle(
+                              selectedHeading == 'Today'
+                                  ? 'Today\'s schedule'
+                                  : '$selectedHeading\'s schedule',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 22,
                                 fontWeight: FontWeight.w900,
@@ -470,22 +465,32 @@ class _EventsScreenState extends State<EventsScreen>
                           ],
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0x33A3E635),
-                          border: Border.all(color: const Color(0x66A3E635)),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          '3 active today',
-                          style: TextStyle(
-                            color: Color(0xFFA3E635),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
+                      ConstrainedBox(
+                        // The count is secondary to the title. On a 320dp
+                        // viewport an unconstrained badge laid out first and
+                        // took the whole row, squeezing the Expanded title to
+                        // a few pixels and wrapping it over 400px. Capping it
+                        // keeps the title readable at any width.
+                        constraints: const BoxConstraints(maxWidth: 132),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0x33A3E635),
+                            border: Border.all(color: const Color(0x66A3E635)),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '$dayEventCount ${dayEventCount == 1 ? 'activity' : 'activities'}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFFA3E635),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
                       ),
@@ -520,6 +525,8 @@ class _EventsScreenState extends State<EventsScreen>
                       children: [
                         const SizedBox(height: 18),
                         CalendarStrip(
+                          startDay: _stripStart,
+                          span: _stripSpan,
                           selectedDay: _selectedDay,
                           onSelected: _selectDay,
                           daysWithEvents: _daysWithEvents,
@@ -546,7 +553,8 @@ class _EventsScreenState extends State<EventsScreen>
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
                 children: [
                   SectionTitle(
-                    'Schedule for ${_selectedDay == 6 ? 'today' : 'Sep $_selectedDay'}',
+                    'Schedule for '
+                    '${selectedHeading == 'Today' ? 'today' : selectedHeading.toLowerCase()}',
                   ),
                   if (visibleEvents.isEmpty)
                     const EmptyEventsState()

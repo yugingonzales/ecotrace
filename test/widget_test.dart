@@ -5,6 +5,8 @@
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,10 +17,12 @@ import 'package:ecotrace/core/connectivity/app_connectivity_scope.dart';
 import 'package:ecotrace/core/connectivity/connection_status.dart';
 import 'package:ecotrace/core/connectivity/connectivity_banner_host.dart';
 import 'package:ecotrace/core/connectivity/connectivity_controller.dart';
+import 'package:ecotrace/core/connectivity/internet_probe.dart';
 import 'package:ecotrace/core/theme/app_theme.dart';
 import 'package:ecotrace/features/home/presentation/widgets/events/participation_receipt.dart';
 import 'package:ecotrace/features/home/presentation/models/local_event.dart';
 import 'package:ecotrace/features/home/presentation/widgets/events/calendar_strip.dart';
+import 'package:ecotrace/core/date/app_date.dart';
 
 void main() {
   testWidgets('renders the animated splash then auth entry screen', (
@@ -273,7 +277,16 @@ void main() {
     expect(find.text("You're in!"), findsOneWidget);
     expect(find.text('PARTICIPATION CONFIRMED'), findsOneWidget);
     expect(find.text('Tree planting & tagging'), findsWidgets);
-    expect(find.textContaining('Sep 6'), findsOneWidget);
+    // The seeded schedule is generated relative to today, so the receipt's
+    // date pill is asserted through the same helper the app renders with
+    // rather than a fixed literal that would rot on any other day. The full
+    // pill text is matched so the assertion cannot also pick up the header.
+    expect(
+      find.text(
+        '${AppDate.scheduleHeading(DateTime.now())} · 08:00 AM - 11:30 AM',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Joined'), findsOneWidget);
 
     // It clears itself after the receipt window, driven by the ticker so the
@@ -315,9 +328,9 @@ void main() {
         home: Scaffold(
           body: SingleChildScrollView(
             child: ParticipationReceiptCard(
-              event: const LocalEvent(
+              event: LocalEvent(
                 id: 'evt-long',
-                day: 6,
+                date: DateTime(2026, 9, 6),
                 time: '07:00 - 09:00',
                 title: longTitle,
                 location: 'Sector 4 Reforestation Belt',
@@ -369,12 +382,38 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Tree planting & tagging'), findsOneWidget);
 
-    await tester.tap(find.text('7'));
+    // Move to tomorrow, where the seed places the audit review. The strip is
+    // keyed by real date, so the tap survives any change to how days are
+    // labelled or where the rolling window happens to start.
+    final tomorrow = AppDate.dayOf(DateTime.now()).add(const Duration(days: 1));
+    await tester.tap(
+      find.byKey(
+        ValueKey(
+          'calendar-day-${tomorrow.year}-${tomorrow.month}-${tomorrow.day}',
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Verification feedback review'), findsOneWidget);
   });
 
-  testWidgets('validates and saves a manual verification draft from a tree', (
+  testWidgets('opens the tag scanner from the map chrome', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: AppShell()));
+
+    // Scanning a tag finds a tree; it is not the verification entry point.
+    await tester.tap(find.byIcon(Icons.map_outlined));
+    await tester.pump(const Duration(milliseconds: 250));
+
+    await tester.tap(find.byIcon(Icons.qr_code_scanner_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Scan NFC or QR tag'), findsOneWidget);
+    expect(find.text('Enter tree details manually'), findsOneWidget);
+  });
+
+  testWidgets('routes Start Verification through the proximity gate', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: AppShell()));
@@ -389,26 +428,15 @@ void main() {
     await tester.ensureVisible(find.text('Start Verification'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Start Verification'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Enter tree details manually'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Save verification draft'));
+    // Not pumpAndSettle: the gate shows a progress indicator that spins for as
+    // long as the real GPS call takes, so the tree never goes idle.
     await tester.pump();
-    expect(find.text('Tree tag is required'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 100));
 
-    final fields = find.byType(TextFormField);
-    await tester.enterText(fields.at(0), 'TRE-0892');
-    await tester.enterText(fields.at(1), '24.6');
-    await tester.enterText(fields.at(2), '5.2');
-    await tester.ensureVisible(find.text('Save verification draft'));
-    await tester.tap(find.text('Save verification draft'));
-    await tester.pumpAndSettle();
-    expect(
-      find.text('Verification draft for TRE-0892 saved locally.'),
-      findsOneWidget,
-    );
+    // The wizard must never open before the officer is confirmed to be at
+    // the plant, so the first thing shown is the location check — not the
+    // manual-entry sheet that used to appear here.
+    expect(find.text('Finding your position…'), findsOneWidget);
   });
 
   testWidgets('links between login and sign-up via the bottom prompt', (
@@ -456,7 +484,10 @@ void main() {
     WidgetTester tester,
   ) async {
     _mockConnectivity(tester, ['none']);
-    final controller = ConnectivityController();
+    final controller = ConnectivityController(
+      probe: ScriptedProbe(true),
+      heartbeat: null,
+    );
     final messengerKey = GlobalKey<ScaffoldMessengerState>();
 
     await tester.pumpWidget(
@@ -488,7 +519,10 @@ void main() {
     'flips the map header and shows snackbars on connectivity transitions',
     (WidgetTester tester) async {
       _mockConnectivity(tester, ['wifi']);
-      final controller = ConnectivityController();
+      final controller = ConnectivityController(
+        probe: ScriptedProbe(true),
+        heartbeat: null,
+      );
       final messengerKey = GlobalKey<ScaffoldMessengerState>();
 
       await tester.pumpWidget(
@@ -521,6 +555,212 @@ void main() {
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
     },
   );
+
+  // ── Reachability (transport up, internet down) ────────────────────────
+  //
+  // This is the regression that motivated the probe: `connectivity_plus`
+  // reports `mobile` when data is switched on with no load or no plan, so a
+  // transport-only check claims a connection the user cannot use.
+
+  testWidgets('treats an attached transport with a failing probe as unreachable', (
+    WidgetTester tester,
+  ) async {
+    // Transport present, probe failing - the "data on but no internet" case.
+    _mockConnectivity(tester, ['mobile']);
+    final controller = ConnectivityController(
+      probe: ScriptedProbe(false),
+      heartbeat: null,
+    );
+    final messengerKey = GlobalKey<ScaffoldMessengerState>();
+
+    await tester.pumpWidget(
+      _connectivityHarness(controller: controller, messengerKey: messengerKey),
+    );
+    await tester.pump();
+    // Let the seeded probe resolve and the debounce settle.
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.map_outlined));
+    await tester.pump(const Duration(milliseconds: 250));
+
+    // Must NOT claim to be online, and must not use the offline wording.
+    expect(find.text('Online'), findsNothing);
+    expect(find.text('Offline'), findsNothing);
+    expect(find.text('No internet'), findsOneWidget);
+    expect(controller.value, ConnectionStatus.unreachable);
+  });
+
+  testWidgets('recovers from unreachable once the probe starts succeeding', (
+    WidgetTester tester,
+  ) async {
+    _mockConnectivity(tester, ['mobile']);
+    final probe = ScriptedProbe(false);
+    final controller = ConnectivityController(
+      probe: probe,
+      heartbeat: const Duration(seconds: 30),
+    );
+    final messengerKey = GlobalKey<ScaffoldMessengerState>();
+
+    await tester.pumpWidget(
+      _connectivityHarness(controller: controller, messengerKey: messengerKey),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    expect(controller.value, ConnectionStatus.unreachable);
+
+    // The user tops up data / leaves the dead zone. The heartbeat re-probes
+    // without any transport change event, which is the only way the app can
+    // learn the internet came back.
+    probe.answer = true;
+    await tester.pump(const Duration(seconds: 31));
+    await tester.pumpAndSettle();
+
+    expect(controller.value, ConnectionStatus.online);
+
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle(const Duration(milliseconds: 100));
+
+    // Unmount before disposing: the banner host holds a listener, and
+    // removeListener on an already-disposed notifier asserts. The heartbeat
+    // timer is a real 30s timer, so leaving the controller alive would fail
+    // the test on pending timers.
+    await tester.pumpWidget(const SizedBox.shrink());
+    controller.dispose();
+  });
+
+  test('discards a probe that finishes after a newer transport evaluation', () async {
+    // A probe is slow, and the transport changes while it is in flight. The
+    // probe's "online" answer is older information than the "offline" the
+    // newer evaluation already published, so applying it would show a
+    // connection the user has actually lost.
+    final events = _MockConnectivityPlatform(
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger,
+      ['wifi'],
+    );
+    final probe = CompleterProbe();
+    final controller = ConnectivityController(
+      probe: probe,
+      heartbeat: null,
+    );
+    addTearDown(controller.dispose);
+
+    final seen = <ConnectionStatus>[];
+    controller.addListener(() => seen.add(controller.value));
+
+    // Startup: transport present, so the probe starts and stalls.
+    controller.initialize();
+    await probe.started.future;
+
+    // Transport drops while the probe is still outstanding.
+    events.emit(['none']);
+    // Past the debounce window, so the offline evaluation has been applied.
+    await Future<void>.delayed(
+      ConnectivityController.debounceDuration + const Duration(milliseconds: 50),
+    );
+    expect(controller.value, ConnectionStatus.offline);
+
+    // The stale probe now reports success. It must not resurrect "online".
+    probe.complete(true);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    expect(controller.value, ConnectionStatus.offline);
+    expect(seen, isNot(contains(ConnectionStatus.online)));
+    events.dispose();
+  });
+
+  test('probe reports unreachable rather than throwing on a dead endpoint', () async {
+    // Port 9 (discard) on loopback refuses connections immediately and
+    // identically on every platform, so this is a deterministic failure
+    // without depending on the sandbox's network policy.
+    final probe = HttpInternetProbe(endpoint: Uri.parse('http://127.0.0.1:9/'));
+
+    // A throwing probe would escape into the connectivity stream and take the
+    // subscription down, so the contract is that failures resolve to false.
+    expect(await probe.isReachable(), isFalse);
+  });
+}
+
+/// Probe whose single call stalls until the test completes it by hand, so a
+/// transport change can be interleaved with an in-flight request.
+class CompleterProbe implements InternetProbe {
+  final Completer<bool> _result = Completer<bool>();
+
+  /// Completes once the probe has actually been called, so the test knows an
+  /// evaluation is genuinely in flight before it changes the transport.
+  final Completer<void> started = Completer<void>();
+
+  void complete(bool reachable) => _result.complete(reachable);
+
+  @override
+  Future<bool> isReachable() {
+    if (!started.isCompleted) started.complete();
+    return _result.future;
+  }
+}
+
+/// Test double for the `connectivity_plus` platform channels.
+///
+/// Wraps both halves of the plugin: the `check` method channel and the
+/// `connectivity_status` event channel, and can push new results onto the
+/// stream on demand. Mirrors the plugin's own test harness, where `listen`
+/// replays the initial value through the channel's success envelope.
+class _MockConnectivityPlatform {
+  static const String _statusChannel =
+      'dev.fluttercommunity.plus/connectivity_status';
+  static const MethodChannel _methodChannel =
+      MethodChannel('dev.fluttercommunity.plus/connectivity');
+
+  /// Captured in the constructor: `TestDefaultBinaryMessengerBinding.instance`
+  /// is not a constant expression, and the two closures below need it.
+  final TestDefaultBinaryMessenger _messenger;
+
+  _MockConnectivityPlatform(this._messenger, List<String> initial) {
+    _current = List<String>.of(initial);
+
+    _messenger.setMockMethodCallHandler(_methodChannel, (MethodCall call) async {
+      if (call.method == 'check') return _current;
+      return null;
+    });
+
+    _messenger.setMockMethodCallHandler(
+      const MethodChannel(_statusChannel),
+      (MethodCall call) async {
+        if (call.method == 'listen') {
+          // The framework only starts pushing once `listen` succeeds, so the
+          // initial value has to be delivered in the same reply.
+          await _messenger.handlePlatformMessage(
+            _statusChannel,
+            const StandardMethodCodec().encodeSuccessEnvelope(_current),
+            (_) {},
+          );
+        }
+        return null;
+      },
+    );
+  }
+
+  late List<String> _current;
+
+  /// Pushes a new transport reading to any active listener.
+  Future<void> emit(List<String> results) async {
+    _current = List<String>.of(results);
+    await _messenger.handlePlatformMessage(
+      _statusChannel,
+      const StandardMethodCodec().encodeSuccessEnvelope(_current),
+      (_) {},
+    );
+  }
+
+  void dispose() {
+    _messenger.setMockMethodCallHandler(_methodChannel, null);
+    _messenger.setMockMethodCallHandler(
+      const MethodChannel(_statusChannel),
+      null,
+    );
+  }
 }
 
 /// Stubs the `connectivity_plus` platform channel for a widget test.

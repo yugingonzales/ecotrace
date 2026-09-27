@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/date/app_date.dart';
 import '../../../../../core/theme/app_theme.dart';
 
+/// Month grid of scheduled field activities.
+///
+/// The visible month is real state rather than a constant, so the header, the
+/// number of cells and the leading blanks all follow the calendar — including
+/// leap Februaries and months that begin on a Saturday.
 class FullCalendarSheet extends StatefulWidget {
   const FullCalendarSheet({
     super.key,
@@ -10,18 +16,23 @@ class FullCalendarSheet extends StatefulWidget {
     required this.onDaySelected,
   });
 
-  final List<int> daysWithEvents;
-  final int selectedDay;
-  final ValueChanged<int> onDaySelected;
+  final List<DateTime> daysWithEvents;
+  final DateTime selectedDay;
+  final ValueChanged<DateTime> onDaySelected;
 
   @override
   State<FullCalendarSheet> createState() => _FullCalendarSheetState();
 }
 
 class _FullCalendarSheetState extends State<FullCalendarSheet> {
-  // September 2026 calendar data
-  static const int daysInMonth = 30;
-  static const int firstDayOfWeek = 1; // Monday (Sept 1, 2026 is Monday)
+  late DateTime _visibleMonth =
+      AppDate.firstOfMonth(widget.selectedDay);
+
+  void _shiftMonth(int delta) {
+    setState(() {
+      _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month + delta);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,13 +80,13 @@ class _FullCalendarSheetState extends State<FullCalendarSheet> {
       padding: const EdgeInsets.all(20),
       child: Row(
         children: [
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'SEPTEMBER 2026',
-                  style: TextStyle(
+                  AppDate.monthYear(_visibleMonth).toUpperCase(),
+                  style: const TextStyle(
                     color: EcoTraceColors.muted,
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
@@ -83,7 +94,7 @@ class _FullCalendarSheetState extends State<FullCalendarSheet> {
                   ),
                 ),
                 SizedBox(height: 2),
-                Text(
+                const Text(
                   'Field activities',
                   style: TextStyle(
                     color: Color(0xFF0A231C),
@@ -92,6 +103,22 @@ class _FullCalendarSheetState extends State<FullCalendarSheet> {
                   ),
                 ),
               ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => _shiftMonth(-1),
+            icon: const Icon(Icons.chevron_left_rounded),
+            tooltip: 'Previous month',
+            style: IconButton.styleFrom(
+              foregroundColor: EcoTraceColors.muted,
+            ),
+          ),
+          IconButton(
+            onPressed: () => _shiftMonth(1),
+            icon: const Icon(Icons.chevron_right_rounded),
+            tooltip: 'Next month',
+            style: IconButton.styleFrom(
+              foregroundColor: EcoTraceColors.muted,
             ),
           ),
           IconButton(
@@ -108,7 +135,7 @@ class _FullCalendarSheetState extends State<FullCalendarSheet> {
 
   Widget _buildWeekdayHeaders() {
     return Row(
-      children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+      children: AppDate.weekdayNames
           .map(
             (day) => Expanded(
               child: Center(
@@ -160,26 +187,34 @@ class _FullCalendarSheetState extends State<FullCalendarSheet> {
   }
 
   Widget _buildCalendarGrid() {
-    final List<Widget> weeks = [];
-    int currentDay = 1;
+    final today = AppDate.dayOf(DateTime.now());
+    final year = _visibleMonth.year;
+    final month = _visibleMonth.month;
+    final monthLength = AppDate.daysInMonth(year, month);
+    // `weekday` is 1 (Mon) through 7 (Sun), matching the fixed Mon–Sun header,
+    // so the number of leading blanks is the real offset of the 1st.
+    final leadingBlanks = DateTime(year, month, 1).weekday - 1;
+    final weeksNeeded = ((monthLength + leadingBlanks) / 7).ceil();
+    final eventDays = widget.daysWithEvents.map(AppDate.dayOf).toSet();
 
-    // Calculate total weeks needed
-    final totalCells = daysInMonth + (firstDayOfWeek - 1);
-    final weeksNeeded = (totalCells / 7).ceil();
+    final List<Widget> weeks = [];
+    var currentDay = 1;
 
     for (int week = 0; week < weeksNeeded; week++) {
       final List<Widget> days = [];
 
       for (int dayOfWeek = 1; dayOfWeek <= 7; dayOfWeek++) {
-        if (week == 0 && dayOfWeek < firstDayOfWeek) {
+        if (week == 0 && dayOfWeek <= leadingBlanks) {
           days.add(const Expanded(child: SizedBox()));
-        } else if (currentDay > daysInMonth) {
+        } else if (currentDay > monthLength) {
           days.add(const Expanded(child: SizedBox()));
         } else {
-          final day = currentDay;
-          final hasEvents = widget.daysWithEvents.contains(day);
-          final isSelected = day == widget.selectedDay;
-          final isToday = day == 6;
+          final day = DateTime(year, month, currentDay);
+          final hasEvents = eventDays.contains(day);
+          final isSelected = AppDate.isSameDay(day, widget.selectedDay);
+          final isToday = AppDate.isSameDay(day, today);
+          final label = '$currentDay';
+          currentDay++;
 
           days.add(
             Expanded(
@@ -208,7 +243,7 @@ class _FullCalendarSheetState extends State<FullCalendarSheet> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          '$day',
+                          label,
                           style: TextStyle(
                             color: isSelected
                                 ? Colors.white

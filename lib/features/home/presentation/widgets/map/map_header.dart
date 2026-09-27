@@ -1,23 +1,46 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/connectivity/connection_status.dart';
 import '../../../../../core/theme/app_theme.dart';
 
 class MapHeader extends StatelessWidget {
   const MapHeader({
     super.key,
     required this.isSatellite,
-    required this.isOnline,
+    required this.connection,
     required this.onToggleLayers,
   });
 
   final bool isSatellite;
-  final bool isOnline;
+
+  /// The current network state. Three states rather than a bool because
+  /// "transport attached but the internet is not reachable" is the case where
+  /// a binary flag would tell the user the map is online while every tile
+  /// request fails.
+  final ConnectionStatus connection;
   final VoidCallback onToggleLayers;
+
+  /// Label, colour, and status are derived together so a new
+  /// [ConnectionStatus] cannot be added without the header also being
+  /// updated — an unmapped value falls back to the "unreachable" wording
+  /// rather than silently claiming a working connection.
+  String get _label => switch (connection) {
+        ConnectionStatus.online => 'Online',
+        ConnectionStatus.offline => 'Offline',
+        ConnectionStatus.unreachable => 'No internet',
+      };
+
+  Color get _connectionColor => switch (connection) {
+        ConnectionStatus.online => const Color(0xFFA3E635),
+        ConnectionStatus.offline => EcoTraceColors.error,
+        // Amber rather than red: the radio is up, so this is recoverable
+        // without touching the network toggle.
+        ConnectionStatus.unreachable => EcoTraceColors.lemon,
+      };
 
   @override
   Widget build(BuildContext context) {
-    final connectionColor =
-        isOnline ? const Color(0xFFA3E635) : EcoTraceColors.error;
+    final connectionColor = _connectionColor;
     return Container(
       padding: const EdgeInsets.fromLTRB(6, 6, 14, 6),
       decoration: BoxDecoration(
@@ -87,7 +110,7 @@ class MapHeader extends StatelessWidget {
           Icon(Icons.circle, size: 7, color: connectionColor),
           const SizedBox(width: 4),
           Text(
-            isOnline ? 'Online' : 'Offline',
+            _label,
             style: TextStyle(
               color: connectionColor,
               fontSize: 9,

@@ -8,9 +8,19 @@ import 'connectivity_controller.dart';
 
 /// Renders global network notices above every route of the app.
 ///
-/// - offline → online transition → short "Internet Connected" snack bar.
-/// - online → offline transition while running → "No internet connection"
-///   snack bar.
+/// Notices are driven by [ConnectionStatus.isUsable] rather than by a
+/// transport check, and the two failure states are worded differently because
+/// the user's next action differs:
+/// - no usable connection → offline → online transition → "Internet Connected".
+/// - usable → any failure → "No internet connection".
+/// - failure → usable → "Internet Connected".
+///
+/// [ConnectionStatus.unreachable] — a transport attached but the reachability
+/// probe failing, e.g. mobile data on with no load — is deliberately *not*
+/// reported as connected, and gets its own "No internet access" wording to
+/// distinguish "nothing is attached" from "something is attached but the
+/// internet does not work".
+///
 /// Startup connectivity is resolved silently (no dialog); the status simply
 /// seeds the map header / sync indicators, and the first transition after
 /// launch raises a snack bar.
@@ -35,7 +45,9 @@ class ConnectivityBannerHost extends StatefulWidget {
 }
 
 class _ConnectivityBannerHostState extends State<ConnectivityBannerHost> {
-  ConnectionStatus _previous = ConnectionStatus.online;
+  /// Conservative until [initialize] resolves, so the first real transition
+  /// is still reported.
+  ConnectionStatus _previous = ConnectionStatus.unreachable;
   bool _startupResolved = false;
 
   @override
@@ -62,13 +74,13 @@ class _ConnectivityBannerHostState extends State<ConnectivityBannerHost> {
   void _onStatusChanged() {
     if (!_startupResolved) return;
     final current = widget.controller.value;
-    final wasOffline = _previous == ConnectionStatus.offline;
+    final wasUsable = _previous.isUsable;
     _previous = current;
 
-    if (current == ConnectionStatus.offline && !wasOffline) {
-      _showOfflineNotice();
-    } else if (current == ConnectionStatus.online && wasOffline) {
+    if (current.isUsable && !wasUsable) {
       _showConnectedNotice();
+    } else if (!current.isUsable && wasUsable) {
+      _showFailureNotice(current);
     }
   }
 
@@ -79,9 +91,15 @@ class _ConnectivityBannerHostState extends State<ConnectivityBannerHost> {
     );
   }
 
-  void _showOfflineNotice() {
+  /// Distinguishes "no transport at all" from "transport up but the internet
+  /// is not there", because only the second is fixed by enabling data or
+  /// leaving a dead zone.
+  void _showFailureNotice(ConnectionStatus status) {
+    final unreachable = status == ConnectionStatus.unreachable;
     _showSnackBar(
-      message: 'No internet connection',
+      message: unreachable
+          ? 'No internet access'
+          : 'No internet connection',
       backgroundColor: EcoTraceColors.error,
     );
   }

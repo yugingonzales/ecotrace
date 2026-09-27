@@ -3,8 +3,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../../../core/connectivity/app_connectivity_scope.dart';
-import '../../../../../core/connectivity/connection_status.dart';
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../field_verification/domain/tree_record.dart';
 import '../../models/campus_data.dart';
 import '../../models/map_tree.dart';
 import '../../widgets/map/map_canvas.dart';
@@ -13,6 +13,7 @@ import '../../widgets/map/map_header.dart';
 import '../../widgets/map/tree_details_card.dart';
 import '../incident/incident_report_screen.dart';
 import '../scanner/scanner_screen.dart';
+import '../verification/start_verification_flow.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -31,6 +32,20 @@ class _MapScreenState extends State<MapScreen> {
   String? _zoneFilter;
   TreeStatus? _statusFilter;
   MapTree? _selectedTree;
+
+  /// In-session status overrides keyed by tree id. There is no database yet,
+  /// so a completed verification updates the map immediately and the change
+  /// lives only as long as the app does. A real backend replaces this map.
+  final Map<String, TreeStatus> _verifiedStatuses = {};
+
+  List<MapTree> get _trees => _verifiedStatuses.isEmpty
+      ? campusTrees
+      : [
+          for (final tree in campusTrees)
+            _verifiedStatuses[tree.id] == null
+                ? tree
+                : tree.copyWith(status: _verifiedStatuses[tree.id]),
+        ];
 
   int get _activeFilterCount =>
       (_zoneFilter == null ? 0 : 1) + (_statusFilter == null ? 0 : 1);
@@ -66,9 +81,47 @@ class _MapScreenState extends State<MapScreen> {
 
   void _recenter() => _mapController.move(_gpsPoint, 16);
 
+  /// Scanning a tag is a way of *finding* a tree, not of verifying one, so it
+  /// sits on the map chrome rather than inside the verification flow. Its
+  /// manual-entry sheet is still the old single-page form; the verification
+  /// wizard supersedes it but the two are not merged yet.
   void _openScanner() {
     Navigator.of(context)
         .push(MaterialPageRoute<void>(builder: (_) => const ScannerScreen()));
+  }
+
+  /// Runs the proximity gate, the mode choice and the manual wizard, then
+  /// reflects the accepted record on the map.
+  Future<void> _startVerification(MapTree tree) async {
+    final record = await Navigator.of(context).push<TreeRecord>(
+      MaterialPageRoute(
+        builder: (_) => StartVerificationFlow(tree: tree),
+      ),
+    );
+    if (record == null || !mounted) return;
+
+    // A dead or missing plant is an incident on the map; a healthy sighting
+    // completes the verification. Both go to "Pending" in the first cut
+    // because nothing reviews the record yet.
+    final status = switch (record.plantStatus) {
+      PlantStatus.alive => TreeStatus.pending,
+      PlantStatus.damaged || PlantStatus.dead => TreeStatus.incident,
+      PlantStatus.missing => TreeStatus.incident,
+    };
+
+    setState(() {
+      _verifiedStatuses[tree.id] = status;
+      _selectedTree = tree.copyWith(status: status);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${tree.id} recorded as ${record.plantStatus.label.toLowerCase()}',
+        ),
+        backgroundColor: EcoTraceColors.forest,
+      ),
+    );
   }
 
   void _openIncidentReport(String treeId) {
@@ -95,6 +148,7 @@ class _MapScreenState extends State<MapScreen> {
           selectedTreeId: _selectedTree?.id,
           onTreeSelected: _onTreeSelected,
           onMapTap: _onMapTap,
+          trees: _trees,
         ),
         Positioned(
           left: 10,
@@ -121,12 +175,42 @@ class _MapScreenState extends State<MapScreen> {
           right: 12,
           child: MapHeader(
             isSatellite: _satellite,
-            isOnline: connection == ConnectionStatus.online,
+            connection: connection,
             onToggleLayers: () => setState(() => _satellite = !_satellite),
           ),
         ),
         Positioned(
           top: 80,
+          right: 12,
+          child: Tooltip(
+            message: 'Scan a tree tag',
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _openScanner,
+                customBorder: const CircleBorder(),
+                child: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(color: Color(0x26000000), blurRadius: 10),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.qr_code_scanner_rounded,
+                    color: EcoTraceColors.forest,
+                    size: 21,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          top: 132,
           right: 12,
           child: Tooltip(
             message: 'Filters',
@@ -139,7 +223,7 @@ class _MapScreenState extends State<MapScreen> {
         ),
         if (_filtersOpen)
           Positioned(
-            top: 130,
+            top: 182,
             right: 12,
             child: MapFilterPanel(
               zoneFilter: _zoneFilter,
@@ -192,7 +276,8 @@ class _MapScreenState extends State<MapScreen> {
                 : TreeDetailsCard(
                     tree: _selectedTree!,
                     onClose: _closeDetails,
-                    onStartVerification: _openScanner,
+                    onStartVerification: () =>
+                        _startVerification(_selectedTree!),
                     onReportIncident: () =>
                         _openIncidentReport(_selectedTree!.id),
                   ),

@@ -3,6 +3,17 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Required by connectivity_plus to read the active network state. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- Required by geolocator to confirm the officer is within the verification
+         radius of the plant. COARSE is declared alongside FINE because Android
+         requires the coarse grant to be present when fine is requested. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- Required by image_picker to capture tree evidence. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- The verification gate is a hard requirement, so the app is not
+         installable on a device without a camera or GPS. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <uses-feature android:name="android.hardware.location.gps" android:required="false"/>
     <application
         android:label="ecotrace"
         android:name="${applicationName}"

@@ -3,9 +3,15 @@
 **Scope:** Runtime lag / jank audit of the Flutter app in `C:\flutter_workspace\ecotrace\`.
 **Method:** Static code audit of every `lib/` file (49 files), `pubspec.yaml`, Android
 manifest / Gradle config, assets, and git history. Baseline validated with
-`flutter analyze` (clean) and `flutter test` (11/11 passing). No device
-available in this environment, so timings below are **expectations from the
-code paths**, not measured frame times — verify on hardware with DevTools
+`flutter analyze` (clean) and `flutter test` (11/11 passing).
+
+> **Correction, 2026-09-27:** the `11/11` count above is stale — it predates the
+> connectivity and monitoring-progress test work. The suite is at **26 passing**
+> (`flutter analyze` clean). Treat every `11/11` in this report as "the suite was
+> green at the time of writing", and re-run `flutter test` for the live count.
+
+No device available in this environment, so timings below are **expectations from
+the code paths**, not measured frame times — verify on hardware with DevTools
 (see "How to measure" at the end).
 
 ## 1. Headline findings (priority order)
@@ -326,7 +332,13 @@ Expected deltas:
    redundant outer `RepaintBoundary` around each `TreeMarker` (visual-neutral).
 
 Revalidated after the edits: `flutter analyze` clean and `flutter test`
-11/11 passing.
+11/11 passing *(the count at that time; the suite is now 26 — see the correction
+at the top of this file)*.
+
+> **Corrected 2026-09-27:** the `11/11` figures above are stale. The suite had
+> grown to **22** tests before the functionality work and is at **26** now
+> (Phase 2 added four connectivity tests). Re-run `flutter test` for the live
+> count rather than trusting a number recorded here.
 
 The P0 blur reduction (Section 2), P1 lazy map tab (Section 3), and P2
 backdrop / form-split changes (Sections 5–6) are **not yet applied** because

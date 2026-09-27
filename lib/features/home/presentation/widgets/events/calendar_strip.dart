@@ -1,40 +1,53 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/date/app_date.dart';
 import '../../../../../core/theme/app_theme.dart';
 
+/// Horizontally scrolling run of selectable days starting at [startDay].
+///
+/// The window is anchored on a real date rather than a hard-coded list of
+/// day numbers, so weekdays, month boundaries and the "today" marker are all
+/// derived from the calendar instead of assumed.
 class CalendarStrip extends StatelessWidget {
   const CalendarStrip({
     super.key,
+    required this.startDay,
     required this.selectedDay,
     required this.onSelected,
+    this.span = 42,
     this.daysWithEvents = const [],
     this.scrollController,
     this.itemWidth = 56,
     this.spacing = 4,
   });
 
-  final int selectedDay;
-  final ValueChanged<int> onSelected;
-  final List<int> daysWithEvents;
+  /// First day in the window, normally today.
+  final DateTime startDay;
+
+  final DateTime selectedDay;
+  final ValueChanged<DateTime> onSelected;
+
+  /// Number of selectable days offered.
+  final int span;
+
+  final List<DateTime> daysWithEvents;
   final ScrollController? scrollController;
   final double itemWidth;
   final double spacing;
 
-  /// Days available to scroll through (September 2026, Mon 1st - Sun 30th).
-  static final List<int> _days = List<int>.generate(
-    30,
-    (i) => i + 1,
-    growable: false,
-  );
-
-  /// The weekday label for a day in September 2026 (the 1st was a Monday).
-  static String _weekday(int day) {
-    const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return names[(day - 1) % 7];
-  }
-
   @override
   Widget build(BuildContext context) {
+    final today = AppDate.dayOf(DateTime.now());
+    final first = AppDate.dayOf(startDay);
+    final days = List<DateTime>.generate(
+      span,
+      (index) => first.add(Duration(days: index)),
+      growable: false,
+    );
+    final eventDays = daysWithEvents
+        .map(AppDate.dayOf)
+        .toSet();
+
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -47,18 +60,25 @@ class CalendarStrip extends StatelessWidget {
         controller: scrollController,
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        itemCount: _days.length,
+        itemCount: days.length,
         separatorBuilder: (context, index) => SizedBox(width: spacing),
         itemBuilder: (context, index) {
-          final day = _days[index];
+          final day = days[index];
+          final isSelected = AppDate.isSameDay(day, selectedDay);
+          final hasEvents = eventDays.contains(day);
+          final isToday = AppDate.isSameDay(day, today);
+          final foreground = isSelected
+              ? const Color(0xFF0A231C)
+              : Colors.white;
           return InkWell(
+            key: ValueKey('calendar-day-${day.year}-${day.month}-${day.day}'),
             onTap: () => onSelected(day),
             borderRadius: BorderRadius.circular(12),
             child: Container(
               width: itemWidth,
               padding: const EdgeInsets.symmetric(vertical: 8),
               decoration: BoxDecoration(
-                color: day == selectedDay
+                color: isSelected
                     ? EcoTraceColors.lemon
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
@@ -67,9 +87,9 @@ class CalendarStrip extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    _weekday(day),
+                    AppDate.weekday(day),
                     style: TextStyle(
-                      color: day == selectedDay
+                      color: isSelected
                           ? const Color(0xFF0A231C)
                           : const Color(0xFFA3B8AC),
                       fontSize: 9,
@@ -78,11 +98,13 @@ class CalendarStrip extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '$day',
+                    '${day.day}',
                     style: TextStyle(
-                      color: day == selectedDay
-                          ? const Color(0xFF0A231C)
-                          : Colors.white,
+                      color: isSelected
+                          ? foreground
+                          : (isToday
+                                ? EcoTraceColors.lemon
+                                : Colors.white),
                       fontSize: 14,
                       fontWeight: FontWeight.w900,
                     ),
@@ -92,8 +114,8 @@ class CalendarStrip extends StatelessWidget {
                     width: 4,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: daysWithEvents.contains(day)
-                          ? (day == selectedDay
+                      color: hasEvents
+                          ? (isSelected
                               ? const Color(0xFF0A231C)
                               : EcoTraceColors.lemon)
                           : Colors.transparent,

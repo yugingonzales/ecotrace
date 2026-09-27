@@ -50,6 +50,16 @@ Leaflet-style map driven by the admin portal's authoritative tree inventory.
 
 ### Global network monitoring (`connectivity_plus`)
 
+> ⚠️ **Superseded 2026-09-27 by the Phase 2 work.** This section describes the
+> original two-state design and is kept as a historical record. The
+> `connectivity_plus` channel only ever reported the attached *transport*, so a
+> phone with mobile data on but no load reported `online` and the app showed
+> "Internet Connected" while every request failed. `ConnectionStatus` is now
+> `{online, offline, unreachable}`, `online` requires a passing HTTP reachability
+> probe as well as a transport, `MapHeader` takes the enum rather than
+> `isOnline`, and the banner host has a third "No internet access" notice.
+> See `FUNCTIONALITY_PHASES.md` → "Phase 2 notes" for the current design.
+
 - Added `connectivity_plus ^7.3.1` and the `ACCESS_NETWORK_STATE` Android
   permission; the map tile pipeline now has an app-level online/offline story
   instead of failing silently.
@@ -138,15 +148,28 @@ Leaflet-style map driven by the admin portal's authoritative tree inventory.
     offline→online transition still raises the connected banner.
   - Connectivity transitions → map header flips `Online` ↔ `Offline` and the
     snack bars raise/lower on offline→online and online→offline.
+  - *(Superseded by Phase 2 — these now run with a `ScriptedProbe(true)` so the
+    three-state machine is exercised. Phase 2 added three more: a failing probe
+    on attached transport, recovery via the 30s heartbeat, and discarding a
+    stale in-flight probe.)*
 
 ## Validation
 
 ```powershell
 flutter pub get     # OK
 flutter analyze     # No issues found
-flutter test        # 11/11 passed
+flutter test        # 11/11 passed  ← count as of Phase 3; the suite is now 57
 flutter build apk --debug  # app-debug.apk built
 ```
+
+> **Doc drift:** the `11/11` above is the count when Phase 3 shipped. Current
+> gates are `flutter analyze` clean and `flutter test` **57/57**. See
+> `PERFORMANCE_TRACKING.md` for the full log.
+
+> **This document is historical.** The Phase 3 it describes — making the dead
+> controls work — was redefined and largely deferred. It was replaced by the
+> on-site tree verification feature, documented in `FUNCTIONALITY_PHASES.md`
+> under "Phase 3 (shipped)". The items below are still open.
 
 ## Current State
 
@@ -158,6 +181,14 @@ offline), raises/lowers "connected"/"offline" snack bars only on
 transitions, and the map header reflects the live status. Trees, zones, and
 statuses remain locally seeded from the admin portal dataset; there is still no
 backend synchronization, GPS locking, or live status updates.
+
+> **⚠️ The connectivity paragraph above describes the superseded two-state
+> design.** As of 2026-09-27 ("Internet banner shows connected without a load
+> or a plan", Phase 2 in `FUNCTIONALITY_PHASES.md`) the app distinguishes three
+> states, not two: `online` requires an attached transport **and** a passing HTTP
+> reachability probe, while `unreachable` means the radio is up but traffic
+> fails. The "connected" snack bar is therefore no longer reachable on a
+> metered connection with no data plan.
 
 ## Next Review Gate
 

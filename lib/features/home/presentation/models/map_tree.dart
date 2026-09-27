@@ -61,4 +61,25 @@ class MapTree {
 
   /// Compact coordinate pair shown in the details card, e.g. `12.5101, 124.6679`.
   String get coordinates => '${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}';
+
+  /// Returns a copy with the given fields replaced. Used to reflect a field
+  /// verification in the map without mutating the shared const inventory.
+  MapTree copyWith({
+    double? lat,
+    double? lng,
+    TreeStatus? status,
+    String? species,
+    String? zone,
+    String? planter,
+    String? datePlanted,
+  }) => MapTree(
+    id: id,
+    lat: lat ?? this.lat,
+    lng: lng ?? this.lng,
+    status: status ?? this.status,
+    planter: planter ?? this.planter,
+    species: species ?? this.species,
+    datePlanted: datePlanted ?? this.datePlanted,
+    zone: zone ?? this.zone,
+  );
 }
