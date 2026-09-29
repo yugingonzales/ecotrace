@@ -15,7 +15,7 @@
 >
 > **Section 2's feature-gap list is still accurate** — the persistence, auth,
 > sync, scanner and profile gaps are all still open. **D-1 is now done.** Current
-> gates: `flutter analyze` clean, `flutter test` **57/57** (26 after Phase 2).
+> gates: `flutter analyze` clean, `flutter test` **64/64**.
 
 **Scope:** performance, optimization, and feature-completeness audit of the whole
 Flutter app in `C:\flutter_workspace\ecotrace`.

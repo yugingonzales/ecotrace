@@ -82,7 +82,7 @@ The current implementation contains:
 - Esri World Imagery satellite layer toggle in the map header.
 - All 23 georeferenced admin `TRE-*` trees (real lat/lng) with admin zone/status vocabulary and marker colors.
 - Zone chips and status filter panel with live inventory counts.
-- Bottom-sheet tree details: species, zone, planter, planted date, coordinates, status, `Start Verification` (runs a 5 m proximity check, then the analysis-mode choice and the verification wizard) and `Report incident` (opens the linked incident form).
+- Bottom-sheet tree details: species, zone, planter, planted date, coordinates, status, `Start Verification` (opens the analysis-mode choice, then a 10 m proximity check, then the verification wizard) and `Report incident` (opens the linked incident form).
 - Replaced the synthetic CustomPaint grid (deleted `field_map_painter.dart` and `map_label.dart`); left-over `T-*` mock tags updated to admin `TRE-*` tags.
 - `INTERNET` permission added to the Android manifest for map tile downloads.
 - **On-site tree verification** (Phase 3, 2026-09-27): GPS proximity gate, manual/automatic analysis choice, and a 4-step wizard — plant status (alive / damaged / dead / missing) → DBH and crown measurements → 3–5 camera photos → review. Automatic analysis is present but not functional. Records are not yet persisted; they are lost on app restart. See `FUNCTIONALITY_PHASES.md`.

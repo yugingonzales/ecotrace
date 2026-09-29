@@ -54,14 +54,20 @@ the app shows "Internet Connected" while every request would fail.
 
 ### C. Controls that do nothing
 
+> **Path corrected 2026-09-29.** The rows below said
+> `incident_report_screen.dart`; the real file is
+> `lib/features/home/presentation/screens/incident/incident_report_screen.dart`.
+> Line numbers re-verified against the file today — the findings themselves
+> still hold.
+
 | Location | Control | Current behaviour |
 |----------|---------|-------------------|
-| `incident_report_screen.dart:62` | Incident type dropdown | `onChanged: (_) {}` — selection discarded |
-| `incident_report_screen.dart:73` | Severity dropdown | `onChanged: (_) {}` — selection discarded |
-| `incident_report_screen.dart:85` | "Add photo evidence" | `onPressed: () {}` — no-op |
-| `incident_report_screen.dart:69-79` | Description | `const TextField` — not even a controller |
+| `screens/incident/incident_report_screen.dart:62` | Incident type dropdown | `onChanged: (_) {}` — selection discarded |
+| `screens/incident/incident_report_screen.dart:73` | Severity dropdown | `onChanged: (_) {}` — selection discarded |
+| `screens/incident/incident_report_screen.dart:85` | "Add photo evidence" | `onPressed: () {}` — no-op |
+| `screens/incident/incident_report_screen.dart:76` | Description | `const TextField` — not even a controller |
 | `widgets/alerts/filter_tabs.dart:14` | All / Recent / By date | `setState` repaints the pill, filters nothing |
-| `incident_report_screen.dart:~90` | "Save incident draft" | SnackBar only, no data captured or stored |
+| `screens/incident/incident_report_screen.dart:~90` | "Save incident draft" | SnackBar only, no data captured or stored |
 
 ---
 
@@ -156,17 +162,33 @@ Requested 2026-09-27: verification must happen **at the plant**, not remotely.
 A monitoring officer taps a tree, taps "Start Verification", and only then is
 allowed to verify — so the flow is gated on location first.
 
-**Flow:** tap tree → details sheet → *Start Verification* → **proximity gate**
-→ **analysis mode** → **4-step wizard** → record returned to the map.
+**Flow:** tap tree → details sheet → *Start Verification* → **analysis mode** →
+**proximity gate** → **4-step wizard** → record returned to the map.
+
+> **Revised 2026-09-29.** The order was originally gate → mode → wizard. The
+> mode choice now comes first, so the app does not open a GPS session for a
+> plant the officer may not end up verifying; the gate still runs before the
+> wizard, so the 10 m rule is still enforced. The gate button now reads
+> "Continue" rather than repeating "Start verification".
+
+> **GATE CURRENTLY DISABLED (2026-09-29, temporary).**
+> `VerificationProximity.enforcementEnabled` is `false`, so the flow is
+> **mode → wizard** and the proximity check is skipped entirely. This was done
+> so the verification interface can be tested on a desk, on a simulator, or on
+> a device with no location fix. The gate code is untouched — it returns as
+> soon as the flag is set back to `true`. Records captured this way have
+> `distanceFromTreeMeters == null`; that is the marker of an unverified
+> position, and it must not be mistaken for proof the officer was at the plant.
+> **Restore before recording real field data.**
 
 ### Domain (`lib/features/field_verification/domain/`)
 
 | File | Purpose |
 |---|---|
 | `tree_record.dart` | `TreeRecord` + `PlantStatus` {alive, damaged, dead, missing}, `VerificationStatus`, `MeasurementSource`. Rewritten from the original stub. |
-| `verification_proximity.dart` | `ProximityResult`, `ProximityFailure`, `PositionSource` (injectable), `GeolocatorPositionSource`, and `VerificationProximity.isAcceptable`. |
+| `verification_proximity.dart` | `ProximityResult`, `ProximityFailure`, `PositionSource` (injectable), `GeolocatorPositionSource`, and `VerificationProximity.isAcceptable`. Also holds `VerificationProximity.enforcementEnabled`, the temporary gate switch (currently `false`). |
 | `verification_draft.dart` | `VerificationStep`, `AnalysisMode`, and the mutable `VerificationDraft` that becomes a `TreeRecord` on submit. |
-| `measurement_limits.dart` | Sanity bounds and the m→cm factor. |
+| `measurement_limits.dart` | Sanity bounds for both measurements, both in cm. |
 
 ### Presentation (`lib/features/home/presentation/`)
 
@@ -180,14 +202,21 @@ allowed to verify — so the flow is gated on location first.
 
 ### Decisions and trade-offs
 
-- **The 5 m radius widens by the GPS accuracy, capped at 30 m.** A single
-  outdoor GPS sample is routinely several metres out, so a hard `meters <= 5`
+- **The 10 m radius widens by the GPS accuracy, capped at 30 m.** Raised from
+  5 m to 10 m on 2026-09-29; ten metres is roughly the width of the planting
+  strip, so an officer standing beside the plant is inside it. A single
+  outdoor GPS sample is routinely several metres out, so a hard `meters <= 10`
   cut-off would refuse officers who are demonstrably standing on the tree. The
-  gate asks "could this officer be within 5 m of this plant?" and refuses when
+  gate asks "could this officer be within 10 m of this plant?" and refuses when
   even a 30 m-accurate fix cannot answer yes. This is more honest in *both*
   directions than a hard cut-off, but it does mean a 6 m reading with a 20 m
   fix is accepted. If that trade is unacceptable, the fix is a live fix
   (several samples averaged) rather than a tighter constant.
+- **Both measurements are entered in centimetres** (2026-09-29). Crown
+  dimension was typed in metres and converted on the way in. One unit across
+  the form costs an extra digit and removes a per-reading mental conversion
+  for the officer — and removes the class of bug where a conversion is applied
+  to the wrong field. The record still stores centimetres either way.
 - **`PositionSource` is an interface** so the gate is testable without a device
   and so a future mock/simulator can be injected.
 - **Automatic analysis is present but inert.** Wiring it to a placeholder that
@@ -224,7 +253,7 @@ allowed to verify — so the flow is gated on location first.
    `x ?? this.x` trap), so switching a plant to missing would have kept the old
    measurements. Now has explicit `clearMeasurements` / `clearPhotos` flags.
 
-**Gate:** `flutter analyze` ✅ clean · `flutter test` **57/57** ✅ (up from 26)
+**Gate:** `flutter analyze` ✅ clean · `flutter test` **64/64** ✅ (up from 57)
 
 ---
 
@@ -261,6 +290,7 @@ allowed to verify — so the flow is gated on location first.
 | 2026-09-27 | **1** | Calendar made date-aware. Added `core/date/app_date.dart`; `LocalEvent.day: int` → `date: DateTime`; added `models/field_event_seed.dart` (four activities at today/+1/+2, same titles & copy so existing assertions survive); `CalendarStrip` rebuilt as a 42-day rolling window from today with real weekdays and a today highlight; `FullCalendarSheet` rebuilt as a real month grid (leap-aware `daysInMonth`, `weekday`-derived leading blanks, dynamic header, **new prev/next month buttons**); removed every `'Sep …'` literal. | `flutter analyze` ✅ clean · `flutter test` **22/22** ✅ |
 | 2026-09-27 | **2** | Connectivity made honest. `ConnectionStatus` gained `unreachable` + `isUsable`; **new** `InternetProbe` (HTTP HEAD, 5s timeout, `http` dependency); controller now requires transport **and** a passing probe, re-probes on every transport change plus a 30s heartbeat, and discards stale in-flight probes via a generation counter; banner host adds a distinct "No internet access" notice; `MapHeader` takes the enum instead of a lossy `bool`. | `flutter analyze` ✅ clean · `flutter test` **26/26** ✅ |
 | 2026-09-27 | **3 (verification)** | On-site tree verification shipped. New `lib/features/field_verification/domain/` (record, proximity, draft, limits) and a proximity gate → mode choice → 4-step wizard. Verification cannot start unless the officer is within 5 m (widened by GPS accuracy, capped at 30 m); "Start Verification" now routes here instead of the scanner, which moved to a map-chrome button. Added `geolocator` + `image_picker` and the location/camera manifest permissions. Fixed a units bug that made every measurement un-submittable, a missing-plant skip that disabled Continue, and a `copyWith` that could not clear a field. | `flutter analyze` ✅ clean · `flutter test` **57/57** ✅ |
+| 2026-09-29 | **3 (revision)** | Verification flow revised on user feedback. **Order changed**: the analysis-mode choice is now shown first and the proximity check runs only after manual is chosen, so the app no longer holds a GPS session open behind a screen the officer may back out of — the gate still runs before the wizard, so the radius rule is still enforced. **Radius raised 5 m → 10 m** (roughly the width of the planting strip, so standing beside the plant is inside it). **Both measurements now entered in cm** — crown was typed in metres and converted on the way in, which is exactly where the earlier units bug lived; `MeasurementLimits.metresToCentimetres` and the validator's `unitToCm` parameter are gone, so the two fields can no longer disagree about their unit. Gate button reads "Continue" instead of repeating "Start verification". Added `start_verification_flow_test.dart` (5 tests) using a fake `PositionSource`, and **mutation-tested the deferral** — moving the check back into `initState` turns the first test red, so it genuinely reaches the behaviour. | `flutter analyze` ✅ clean · `flutter test` **64/64** ✅ |
 
 ### Phase 1 notes (why it looks the way it does)
 

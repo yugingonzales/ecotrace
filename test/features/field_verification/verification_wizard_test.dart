@@ -108,7 +108,7 @@ void main() {
     );
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Crown dimension'),
-      '4.5',
+      '450',
     );
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
@@ -129,7 +129,7 @@ void main() {
     expect(find.byIcon(Icons.photo_camera_rounded), findsOneWidget);
   });
 
-  testWidgets('DBH is read as cm and crown as metres', (tester) async {
+  testWidgets('both measurements are read as centimetres', (tester) async {
     await pumpWizard(tester);
 
     await tester.tap(find.text('Alive'));
@@ -137,8 +137,9 @@ void main() {
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
-    // A normal DBH is tens of centimetres. If the field were treated as
-    // metres, 24.5 would read as 2450 cm and be rejected as implausible.
+    // A normal DBH is tens of centimetres and a normal crown spread is a few
+    // hundred. Both fields are typed in cm, so neither may be reinterpreted as
+    // metres and rejected as implausibly large.
     await tester.enterText(
       find.widgetWithText(TextFormField, 'DBH — diameter at breast height'),
       '24.5',
@@ -149,10 +150,10 @@ void main() {
       findsNothing,
     );
 
-    // A normal crown dimension is a few metres, and 4.5 m = 450 cm.
+    // 450 cm = 4.5 m of canopy, the value the metre-based field used to take.
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Crown dimension'),
-      '4.5',
+      '450',
     );
     await tester.pumpAndSettle();
     expect(find.text('Enter DBH'), findsNothing);

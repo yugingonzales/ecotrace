@@ -48,19 +48,19 @@ void main() {
       );
     });
 
-    test('a precise fix is judged on the 5 m radius alone', () {
-      // 7 m reported with a 1 m-accurate fix, so the true position is at best
-      // 6 m away — outside the radius under any reading of the error.
+    test('a precise fix is judged on the radius alone', () {
+      // 12 m reported with a 1 m-accurate fix, so the true position is at best
+      // 11 m away — outside the 10 m radius under any reading of the error.
       expect(
-        VerificationProximity.isAcceptable(meters: 7.0, accuracy: 1.0),
+        VerificationProximity.isAcceptable(meters: 12.0, accuracy: 1.0),
         isFalse,
       );
     });
 
     test('a sloppy fix is given the benefit of the doubt', () {
-      // 6 m away but only accurate to 20 m — plausibly standing on the tree.
+      // 11 m away but only accurate to 20 m — plausibly standing on the tree.
       expect(
-        VerificationProximity.isAcceptable(meters: 6.0, accuracy: 20.0),
+        VerificationProximity.isAcceptable(meters: 11.0, accuracy: 20.0),
         isTrue,
       );
     });
@@ -81,6 +81,10 @@ void main() {
         ),
         isTrue,
       );
+    });
+
+    test('the radius is 10 m', () {
+      expect(VerificationProximity.maxDistanceMeters, 10.0);
     });
   });
 
@@ -204,16 +208,20 @@ void main() {
   });
 
   group('MeasurementLimits', () {
-    test('the cm/m conversion factor is 100', () {
-      expect(MeasurementLimits.metresToCentimetres, 100);
-    });
-
     test('limits are plausible for a campus tree', () {
       expect(MeasurementLimits.maxDbhCm, greaterThan(0));
       expect(
         MeasurementLimits.maxCrownCm,
         greaterThan(MeasurementLimits.maxDbhCm),
       );
+    });
+
+    test('both maxima are centimetres, so no conversion is needed', () {
+      // Both fields are typed and stored in cm. If a conversion factor is
+      // reintroduced, one of the two fields will read ten-fold too large —
+      // the exact bug that made measurements un-submittable before.
+      expect(MeasurementLimits.maxDbhCm, 500);
+      expect(MeasurementLimits.maxCrownCm, 3000);
     });
   });
 }

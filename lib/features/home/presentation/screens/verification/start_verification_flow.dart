@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../field_verification/domain/tree_record.dart';
+import '../../../../field_verification/domain/verification_draft.dart';
 import '../../../../field_verification/domain/verification_proximity.dart';
 import '../../models/map_tree.dart';
 import 'analysis_mode_screen.dart';
@@ -9,8 +10,8 @@ import 'verification_wizard_screen.dart';
 
 /// Entry point for "Start Verification".
 ///
-/// Enforces that the officer is standing at the plant before the wizard opens,
-/// then runs the mode choice and the manual wizard. Returns the completed
+/// Offers the analysis-mode choice first, then enforces that the officer is
+/// standing at the plant before the wizard opens. Returns the completed
 /// [TreeRecord] to the caller, or null if the officer backed out.
 class StartVerificationFlow extends StatefulWidget {
   const StartVerificationFlow({
@@ -28,13 +29,24 @@ class StartVerificationFlow extends StatefulWidget {
 
 class _StartVerificationFlowState extends State<StartVerificationFlow> {
   late final PositionSource _source = widget.positionSource ?? GeolocatorPositionSource();
+  bool _manualChosen = false;
   bool _checking = true;
   ProximityResult? _result;
+
+  /// Guards the temporary bypass below, which would otherwise re-push the
+  /// wizard on every rebuild while it is open.
+  bool _openingWizard = false;
 
   @override
   void initState() {
     super.initState();
-    _checkProximity();
+  }
+
+  /// Locating starts only once the officer commits to manual analysis, so the
+  /// app is not holding a GPS session open behind the mode choice.
+  void _onManualChosen(AnalysisMode _) {
+    setState(() => _manualChosen = true);
+    if (VerificationProximity.enforcementEnabled) _checkProximity();
   }
 
   Future<void> _checkProximity() async {
@@ -49,14 +61,14 @@ class _StartVerificationFlowState extends State<StartVerificationFlow> {
     });
   }
 
-  Future<void> _continueToMode() async {
-    // The mode choice and the wizard are pushed as one unit so the wizard is
-    // never reachable without having passed the proximity check.
+  /// Opens the wizard and forwards the finished record back to the map, so
+  /// the caller still sees exactly one record come out of the whole flow.
+  Future<void> _openWizard() async {
     final record = await Navigator.of(context).push<TreeRecord>(
       MaterialPageRoute(
-        builder: (_) => _ModeAndWizard(
+        builder: (_) => VerificationWizardScreen(
           tree: widget.tree,
-          distanceMeters: _result?.meters,
+          distanceFromTreeMeters: _result?.meters,
         ),
       ),
     );
@@ -65,12 +77,37 @@ class _StartVerificationFlowState extends State<StartVerificationFlow> {
 
   @override
   Widget build(BuildContext context) {
-    if (_checking) return _scaffold(const _LocatingState());
+    // The mode choice is the first thing the officer sees, so nothing is
+    // located until they have actually committed to verifying this plant.
+    if (!_manualChosen) {
+      return AnalysisModeScreen(
+        treeId: widget.tree.id,
+        species: widget.tree.species,
+        onManualChosen: _onManualChosen,
+      );
+    }
+    // TEMPORARY: with the gate disabled the wizard opens directly, so the
+    // interface can be tested without a location fix. The gate itself is
+    // untouched and returns as soon as enforcementEnabled is true again.
+    if (!VerificationProximity.enforcementEnabled) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_openingWizard) {
+          _openingWizard = true;
+          _openWizard();
+        }
+      });
+      // The wizard is pushed on the next frame; hold a blank scaffold so
+      // there is no half-built gate (or null result) behind it.
+      return _scaffold(const SizedBox.shrink());
+    }
+    if (_checking) {
+      return _scaffold(const _LocatingState());
+    }
     return _scaffold(_GateState(
       key: const ValueKey('gate'),
       result: _result!,
       onRetry: _checkProximity,
-      onProceed: _continueToMode,
+      onProceed: _openWizard,
     ));
   }
 
@@ -85,35 +122,6 @@ class _StartVerificationFlowState extends State<StartVerificationFlow> {
     ),
     body: SafeArea(child: child),
   );
-}
-
-class _ModeAndWizard extends StatefulWidget {
-  const _ModeAndWizard({required this.tree, this.distanceMeters});
-
-  final MapTree tree;
-  final double? distanceMeters;
-
-  @override
-  State<_ModeAndWizard> createState() => _ModeAndWizardState();
-}
-
-class _ModeAndWizardState extends State<_ModeAndWizard> {
-  bool _manual = false;
-
-  @override
-  Widget build(BuildContext context) {
-    if (_manual) {
-      return VerificationWizardScreen(
-        tree: widget.tree,
-        distanceFromTreeMeters: widget.distanceMeters,
-      );
-    }
-    return AnalysisModeScreen(
-      treeId: widget.tree.id,
-      species: widget.tree.species,
-      onManualChosen: (_) => setState(() => _manual = true),
-    );
-  }
 }
 
 class _LocatingState extends StatelessWidget {
@@ -212,8 +220,11 @@ class _WithinRangeNotice extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
+              // "Continue", not "Start verification": the officer already
+              // started it by choosing manual analysis, and a button that
+              // repeats the previous one reads as though nothing happened.
               child: const Text(
-                'Start verification',
+                'Continue',
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),

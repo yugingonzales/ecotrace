@@ -23,6 +23,7 @@ import 'package:ecotrace/features/home/presentation/widgets/events/participation
 import 'package:ecotrace/features/home/presentation/models/local_event.dart';
 import 'package:ecotrace/features/home/presentation/widgets/events/calendar_strip.dart';
 import 'package:ecotrace/core/date/app_date.dart';
+import 'package:ecotrace/features/field_verification/domain/verification_proximity.dart';
 
 void main() {
   testWidgets('renders the animated splash then auth entry screen', (
@@ -413,7 +414,7 @@ void main() {
     expect(find.text('Enter tree details manually'), findsOneWidget);
   });
 
-  testWidgets('routes Start Verification through the proximity gate', (
+  testWidgets('offers the analysis mode before locating the officer', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: AppShell()));
@@ -428,15 +429,45 @@ void main() {
     await tester.ensureVisible(find.text('Start Verification'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Start Verification'));
+    await tester.pumpAndSettle();
+
+    // The mode choice is the first thing shown, so the app is not holding a
+    // GPS session open before the officer has committed to verifying.
+    expect(find.text('How should this plant be analysed?'), findsOneWidget);
+    expect(find.text('Manual Analysis'), findsOneWidget);
+    expect(find.text('COMING SOON'), findsOneWidget);
+    expect(find.text('Finding your position…'), findsNothing);
+  });
+
+  testWidgets('the proximity check runs only after manual is chosen', (
+    WidgetTester tester,
+  ) async {
+    // Temporarily off in the app; this test is about the gate's ordering, so it
+    // switches the gate on for its duration and restores the shipped value.
+    VerificationProximity.enforcementEnabled = true;
+    addTearDown(() => VerificationProximity.enforcementEnabled = false);
+
+    await tester.pumpWidget(const MaterialApp(home: AppShell()));
+
+    await tester.tap(find.byIcon(Icons.map_outlined));
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.tap(find.text('TRE-1508'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.ensureVisible(find.text('Start Verification'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Start Verification'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Manual Analysis'));
     // Not pumpAndSettle: the gate shows a progress indicator that spins for as
     // long as the real GPS call takes, so the tree never goes idle.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    // The wizard must never open before the officer is confirmed to be at
-    // the plant, so the first thing shown is the location check — not the
-    // manual-entry sheet that used to appear here.
+    // The wizard must never open before the officer is confirmed to be at the
+    // plant, so the location check comes before it.
     expect(find.text('Finding your position…'), findsOneWidget);
+    expect(find.text('Plant status'), findsNothing);
   });
 
   testWidgets('links between login and sign-up via the bottom prompt', (

@@ -64,12 +64,10 @@ class _VerificationWizardScreenState extends State<VerificationWizardScreen> {
   void _goTo(VerificationStep step) {
     if (step.index > _step.index && _step == VerificationStep.measurements) {
       if (!(_formKey.currentState?.validate() ?? false)) return;
-      final crownMetres = double.tryParse(_crown.text.trim());
       setState(() {
         _draft = _draft.copyWith(
           dbhCm: double.tryParse(_dbh.text.trim()),
-          crownDimensionCm:
-              crownMetres == null ? null : crownMetres * MeasurementLimits.metresToCentimetres,
+          crownDimensionCm: double.tryParse(_crown.text.trim()),
         );
       });
     }
@@ -417,7 +415,6 @@ class _MeasurementStep extends StatelessWidget {
             value,
             'DBH',
             MeasurementLimits.maxDbhCm,
-            unitToCm: 1,
           ),
         ),
         const SizedBox(height: 14),
@@ -427,14 +424,13 @@ class _MeasurementStep extends StatelessWidget {
           textInputAction: TextInputAction.next,
           decoration: const InputDecoration(
             labelText: 'Crown dimension',
-            hintText: 'metres, e.g. 4.5',
-            suffixText: 'm',
+            hintText: 'cm, e.g. 450',
+            suffixText: 'cm',
           ),
           validator: (value) => _validate(
             value,
             'Crown dimension',
             MeasurementLimits.maxCrownCm,
-            unitToCm: MeasurementLimits.metresToCentimetres,
           ),
         ),
         const SizedBox(height: 14),
@@ -453,22 +449,19 @@ class _MeasurementStep extends StatelessWidget {
 
   /// Validates a measurement entered in the field.
   ///
-  /// [unitToCm] converts the officer's entry to centimetres for comparison
-  /// against [maxCm], which is what the record stores. The two fields do not
-  /// share a unit — DBH is typed in cm, crown in metres — so the caller has to
-  /// say which, rather than assuming one conversion for both.
+  /// Both fields are entered and stored in centimetres, so the comparison is
+  /// direct. An earlier version took a unit conversion and multiplied the
+  /// entry by it, which silently applied one unit to both fields and made
+  /// every realistic measurement un-submittable.
   static String? _validate(
     String? raw,
     String label,
-    double maxCm, {
-    required double unitToCm,
-  }) {
+    double maxCm,
+  ) {
     final value = double.tryParse((raw ?? '').trim());
     if (value == null) return 'Enter $label';
     if (value <= 0) return '$label must be greater than 0';
-    if (value * unitToCm > maxCm) {
-      return '$label cannot exceed ${(maxCm / unitToCm).toStringAsFixed(0)}';
-    }
+    if (value > maxCm) return '$label cannot exceed ${maxCm.toStringAsFixed(0)}';
     return null;
   }
 }
@@ -542,14 +535,9 @@ class _ReviewStep extends StatelessWidget {
             _Row('Species', tree.species),
             _Row('Status', status.label),
             if (status.requiresMeasurements)
-              _Row('DBH', draft.dbhCm?.toStringAsFixed(1) ?? '—'),
+              _Row('DBH', '${draft.dbhCm?.toStringAsFixed(1) ?? '—'} cm'),
             if (status.requiresMeasurements)
-              _Row(
-                'Crown',
-                draft.crownDimensionCm == null
-                    ? '—'
-                    : '${(draft.crownDimensionCm! / MeasurementLimits.metresToCentimetres).toStringAsFixed(1)} m',
-              ),
+              _Row('Crown', '${draft.crownDimensionCm?.toStringAsFixed(1) ?? '—'} cm'),
             if (draft.notes.isNotEmpty) _Row('Notes', draft.notes),
             if (status.requiresEvidence)
               _Row('Photos', '${draft.photoPaths.length}'),

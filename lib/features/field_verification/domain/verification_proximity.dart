@@ -119,11 +119,33 @@ class GeolocatorPositionSource implements PositionSource {
 class VerificationProximity {
   const VerificationProximity._();
 
+  /// TEMPORARY TEST BYPASS — set to `true` to put the proximity gate back.
+  ///
+  /// Switched off on 2026-09-29 so the verification interface can be exercised
+  /// indoors, on a desk, or on a device with no location fix. While it is
+  /// `false` the officer skips the gate and lands straight in the wizard.
+  ///
+  /// Mutable rather than `const` on purpose. The gate's own tests have to be
+  /// able to switch it back on, or deleting this flag would quietly delete the
+  /// only proof that the gate works — and a flag nobody can test is a flag
+  /// nobody trusts. Tests set it in `setUp` and restore it in `tearDown`.
+  ///
+  /// This is a data-integrity rule, not a formality: a DBH reading taken from
+  /// across the quad is not a measurement of that tree. It must go back to
+  /// `true` before this is used to record real field data — a record captured
+  /// without the gate has no verified position behind it, and
+  /// [TreeRecord.distanceFromTreeMeters] is null rather than proof of arrival.
+  static bool enforcementEnabled = false;
+
   /// A plant's recorded position is only meaningful to about a metre or two,
   /// so the officer must be standing at it. Exceeding this is not a
   /// formality — a DBH reading taken from across the quad is not a
   /// measurement of that tree.
-  static const double maxDistanceMeters = 5.0;
+  ///
+  /// Raised from 5 m to 10 m on 2026-09-29. Ten metres is roughly the width of
+  /// the planting strip around each tree, so an officer standing beside the
+  /// plant is inside the radius even when the phone's fix is slightly off.
+  static const double maxDistanceMeters = 10.0;
 
   /// Hard ceiling on how far a bad fix may widen the allowance. Beyond this
   /// the reading is too coarse to stand behind and the officer is told to try
@@ -131,11 +153,11 @@ class VerificationProximity {
   static const double maxAccuracyToleranceMeters = 30.0;
 
   /// Within range when the distance fits inside the allowance, the allowance
-  /// being the 5 m radius widened by the fix's own reported error.
+  /// being the radius widened by the fix's own reported error.
   ///
   /// A single GPS sample outdoors is routinely several metres out, so a hard
-  /// 5 m cut-off would refuse officers standing directly on the tree and would
-  /// be quietly defeated by anyone who ignored the warning. Widening by the
+  /// cut-off would refuse officers standing directly on the tree and would be
+  /// quietly defeated by anyone who ignored the warning. Widening by the
   /// reported accuracy is honest in both directions: it admits the officer
   /// when the device itself is unsure, and [maxAccuracyToleranceMeters] stops
   /// that concession becoming an unlimited loophole.

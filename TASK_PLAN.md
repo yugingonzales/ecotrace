@@ -11,7 +11,7 @@ Legend: ⬜ not started · 🔧 in progress · ✅ done & verified (`flutter ana
 
 ## Ground rules
 
-- Gates after every task: `flutter analyze` (clean) and `flutter test` (currently **57/57** green).
+- Gates after every task: `flutter analyze` (clean) and `flutter test` (currently **64/64** green).
 - Do not invent backend endpoints, credentials, schema fields, or OpenCV behavior.
   Leave a clearly marked adapter boundary instead.
 - Android is the only target platform.
@@ -66,7 +66,7 @@ Legend: ⬜ not started · 🔧 in progress · ✅ done & verified (`flutter ana
 |----|------|--------|
 | **F-3a** | Incident form: replace `onChanged: (_) {}` stubs + `const TextField` with real controllers/validation | ⬜ |
 | **F-3b** | Map incident form to the typed `IncidentReport` / `IncidentType` / `IncidentSeverity` enums (currently stringly-typed) | ⬜ |
-| **F-3c** | Map manual verification form to the typed `TreeRecord` / `PlantStatus` / `MeasurementSource` (currently `String _plantStatus = 'Healthy'`) | ⬜ |
+| **F-3c** | Map manual verification form to the typed `TreeRecord` / `PlantStatus` / `MeasurementSource` (currently `String _plantStatus = 'Healthy'`) | ✅ **superseded by Phase 3** — the new wizard builds a real `TreeRecord`. Only `manual_entry_sheet.dart` remains stringly-typed; retire it via V-2. |
 | **F-4** | Alerts `FilterTabs` actually filter the list (PERF-4: decorative today) | ⬜ |
 
 ### Tier 3 — architecture & state management
@@ -86,8 +86,8 @@ Legend: ⬜ not started · 🔧 in progress · ✅ done & verified (`flutter ana
 | **F-8** | Map inventory from backend instead of the 23-tree local seed | ⛔ needs tree-records endpoint |
 | **F-9** | Field-progress dashboard from a repository instead of preview data | ⛔ needs events endpoint |
 | **F-7** | Profile bound to the signed-in staff record (currently literals) | ⛔ needs auth (F-1) |
-| **F-11** | Real GPS (add `geolocator`; replace the hard-coded campus-center `LatLng`) | ⛔ needs permission UX decision |
-| **F-12** | Photo evidence capture (add `image_picker`/camera) | ⛔ needs storage + upload decision |
+| **F-11** | ~~Real GPS (add `geolocator`; replace the hard-coded campus-center `LatLng`)~~ — **PARTIALLY DONE 2026-09-27.** `geolocator` is now a dependency and the verification proximity gate uses a real fix. The map's recenter button still jumps to the hard-coded `campusCenterLat/Lng` (`map_screen.dart:26,82,239`) — the officer's own position is not yet shown. **Remaining: a real "my location" marker + recentre-on-me.** | ⬜ partly done |
+| **F-12** | ~~Photo evidence capture (add `image_picker`/camera)~~ — **DONE for tree verification 2026-09-27.** `image_picker` is a dependency, `CAMERA` is in the manifest, and `EvidenceCapture` takes 3–5 photos in the wizard. **Remaining: the incident form's "Add photo evidence" button is still `onPressed: () {}` (F-3a).** | ✅ done (verification) |
 | **F-4b** | Camera/QR + NFC scanning (add `mobile_scanner`/`nfc_manager`) | ⛔ needs product + permission decision |
 
 ### Tier 5 — release hardening
@@ -124,5 +124,8 @@ Legend: ⬜ not started · 🔧 in progress · ✅ done & verified (`flutter ana
 | 2026-09-27 | Phase 2 | Connectivity is now honest. `connectivity_plus` 7.3.1 has no reachability check, so a new `InternetProbe` performs a real short-timeout HTTP HEAD; `ConnectionStatus` gained `unreachable` and `online` now requires transport **and** a passing probe. Controller re-probes on every transport change and on a 30s heartbeat (so topping up data recovers the app without a reboot), and discards stale in-flight probes so a lost connection can't be resurrected. Banner and map header word the two failure states differently and the header takes the enum instead of a lossy `bool`. Mutation-tested the stale-probe guard. | `flutter analyze` ✅ clean · `flutter test` **26/26** ✅ |
 | 2026-09-27 | Docs + D-4 | User challenged whether the work was actually documented. Grepped every `*.md` rather than trusting the two active files, and found real drift: four older docs still described the superseded two-state connectivity design and stale `11/11` counts. Repaired all of them (D-1, D-2), recorded the §2.B ruling (D-3), and removed the dead `AppDate.relativeLabel` I had written in Phase 1 but never called (D-4). Historical log rows were annotated, never rewritten. | `flutter analyze` ✅ clean · `flutter test` **26/26** ✅ |
 | 2026-09-27 | Phase 3 (verification) | On-site tree verification. New `lib/features/field_verification/domain/` (record, proximity, draft, limits) plus a proximity gate → mode choice → 4-step wizard, and the evidence/step-rail widgets. Verification cannot start unless the officer is within 5 m of the plant (widened by GPS accuracy, capped at 30 m). "Start Verification" now routes there; the tag scanner moved to a map-chrome button since it *finds* trees rather than verifying them. Added `geolocator` + `image_picker` and the location/camera manifest permissions. Three real bugs fixed: a units bug that made every measurement un-submittable, a missing-plant skip that disabled Continue, and a `copyWith` that could not clear a field. Added §2.D (test honesty) to `ai_instructions.md` after a test caught the units bug. Known gaps logged as V-1…V-4. | `flutter analyze` ✅ clean · `flutter test` **57/57** ✅ |
+| 2026-09-29 | Phase 3 (revision) | Verification flow revised on user feedback. **Order changed** — the analysis-mode choice is now first and the proximity check runs only after manual is chosen, so the app does not hold a GPS session open behind a screen the officer may back out of; the gate still runs before the wizard. **Radius 5 m → 10 m.** **Both measurements in cm** — crown was typed in metres and converted on the way in, which is where the earlier units bug lived; `MeasurementLimits.metresToCentimetres` and the validator's `unitToCm` parameter are gone, so the two fields can no longer disagree about their unit. Gate button reads "Continue" instead of repeating "Start verification". New `start_verification_flow_test.dart` (5 tests) with a fake `PositionSource`; mutation-tested the deferral to confirm the test reaches the behaviour. Also corrected `FUNCTIONALITY_PHASES.md` §C, which cited a file path that does not exist. | `flutter analyze` ✅ clean · `flutter test` **64/64** ✅ |
+
+| 2026-09-29 | Gate bypass (temporary) | `VerificationProximity.enforcementEnabled = false`, so the verification flow is mode choice → wizard and the proximity check is skipped. Requested so the interface can be tested without a location fix. The gate code, the 10 m rule, the failure states and the retry path are all untouched and return with one `true`. Kept mutable so the five gate tests can still switch it on — a `const` flag would have forced deleting the only proof the gate works. Added a sixth test for the bypass itself, mutation-checked. **Records made this way have `distanceFromTreeMeters == null`; restore before real field use.** | `flutter analyze` ✅ clean · `flutter test` **65/65** ✅ |
 
 <!-- Append new rows below this line. -->

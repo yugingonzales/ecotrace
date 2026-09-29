@@ -158,12 +158,12 @@ Leaflet-style map driven by the admin portal's authoritative tree inventory.
 ```powershell
 flutter pub get     # OK
 flutter analyze     # No issues found
-flutter test        # 11/11 passed  ← count as of Phase 3; the suite is now 57
+flutter test        # 11/11 passed  ← count as of Phase 3; the suite is now 64
 flutter build apk --debug  # app-debug.apk built
 ```
 
 > **Doc drift:** the `11/11` above is the count when Phase 3 shipped. Current
-> gates are `flutter analyze` clean and `flutter test` **57/57**. See
+> gates are `flutter analyze` clean and `flutter test` **64/64**. See
 > `PERFORMANCE_TRACKING.md` for the full log.
 
 > **This document is historical.** The Phase 3 it describes — making the dead
