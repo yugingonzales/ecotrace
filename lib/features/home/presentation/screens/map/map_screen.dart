@@ -135,6 +135,26 @@ class _MapScreenState extends State<MapScreen> {
   @override
   Widget build(BuildContext context) {
     final connection = AppConnectivityScope.statusOf(context);
+    // The map canvas is full-bleed, so it must NOT be wrapped in a SafeArea —
+    // that would strip a band of canvas off the top and expose whatever is
+    // behind it. Instead the status-bar inset is added to the floating chrome
+    // individually, which is the same arithmetic the other four tabs get for
+    // free from their `SafeArea`. Without it the pill sat at a flat 12px and
+    // climbed *higher* relative to the other tabs as the inset grew.
+    final inset = MediaQuery.paddingOf(context).top;
+
+    // Header sits at the same y as Events / Alerts / Profile / the dashboard:
+    // the status-bar inset, then the one shared gap.
+    final headerTop = inset + EcoTraceHeader.topPadding;
+
+    // Everything stacked below the header is offset from the header's real
+    // height plus a fixed gap, rather than from a hand-tuned absolute. These
+    // reproduce the previous visual rhythm (gaps of 18 / 10 / 8) but can no
+    // longer drift out of sync with it.
+    final scannerTop = headerTop + MapHeader.height + 18;
+    final filterTop = scannerTop + 42 + 10;
+    final panelTop = filterTop + 42 + 8;
+
     return Stack(
       children: [
         // The map canvas is memoized: chrome interactivity below (header,
@@ -170,7 +190,7 @@ class _MapScreenState extends State<MapScreen> {
           ),
         ),
         Positioned(
-          top: 12,
+          top: headerTop,
           left: 12,
           right: 12,
           child: MapHeader(
@@ -180,7 +200,7 @@ class _MapScreenState extends State<MapScreen> {
           ),
         ),
         Positioned(
-          top: 80,
+          top: scannerTop,
           right: 12,
           child: Tooltip(
             message: 'Scan a tree tag',
@@ -210,7 +230,7 @@ class _MapScreenState extends State<MapScreen> {
           ),
         ),
         Positioned(
-          top: 132,
+          top: filterTop,
           right: 12,
           child: Tooltip(
             message: 'Filters',
@@ -223,7 +243,7 @@ class _MapScreenState extends State<MapScreen> {
         ),
         if (_filtersOpen)
           Positioned(
-            top: 182,
+            top: panelTop,
             right: 12,
             child: MapFilterPanel(
               zoneFilter: _zoneFilter,

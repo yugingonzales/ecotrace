@@ -423,7 +423,12 @@ class _EventsScreenState extends State<EventsScreen>
           child: SafeArea(
             bottom: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+              padding: const EdgeInsets.fromLTRB(
+                20,
+                EcoTraceHeader.topPadding,
+                20,
+                16,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -504,9 +509,9 @@ class _EventsScreenState extends State<EventsScreen>
                   //
                   // The 18px gap sits *inside* the collapsed child deliberately.
                   // As a sibling it never animated away, so hiding the strip
-                  // still left 18px of gap plus the 16px header padding = 34px
-                  // of dead green under the title. Collapsing both leaves the
-                  // intended 16px.
+                  // still left 18px of gap plus the 16px header bottom padding
+                  // = 34px of dead green under the title. Collapsing both leaves
+                  // the intended 16px.
                   AnimatedBuilder(
                     animation: _stripCollapse,
                     builder: (context, strip) => ClipRect(

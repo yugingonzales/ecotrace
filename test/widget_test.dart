@@ -24,8 +24,112 @@ import 'package:ecotrace/features/home/presentation/models/local_event.dart';
 import 'package:ecotrace/features/home/presentation/widgets/events/calendar_strip.dart';
 import 'package:ecotrace/core/date/app_date.dart';
 import 'package:ecotrace/features/field_verification/domain/verification_proximity.dart';
+import 'package:ecotrace/features/home/presentation/screens/alerts/alerts_screen.dart';
+import 'package:ecotrace/features/home/presentation/screens/events/events_screen.dart';
+import 'package:ecotrace/features/home/presentation/screens/map/map_screen.dart';
+import 'package:ecotrace/features/home/presentation/screens/profile/profile_screen.dart';
+import 'package:ecotrace/features/home/presentation/widgets/map/map_header.dart';
+import 'package:ecotrace/features/home/presentation/widgets/shared/top_bar.dart';
+import 'package:ecotrace/features/monitoring_progress/presentation/monitoring_progress_screen.dart';
 
 void main() {
+  testWidgets('every tab header, including the map, lines up with the rest', (
+    WidgetTester tester,
+  ) async {
+    // The map header was the one that got missed: it is a floating pill with no
+    // SafeArea, pinned by a Positioned, so it was never on the shared constant
+    // and the earlier fix silently skipped it. These cases assert on real
+    // screen position rather than on a padding value, because a wrong top is
+    // exactly what a padding-only assertion cannot see.
+    for (final inset in <double>[24, 28, 40]) {
+      Widget withInset(Widget child) => MediaQuery(
+            data: MediaQueryData(padding: EdgeInsets.only(top: inset)),
+            child: Scaffold(body: child),
+          );
+
+      await tester.pumpWidget(
+        withInset(const AlertsScreen()),
+      );
+      await tester.pumpAndSettle();
+      final tabTop = tester.getTopLeft(find.byType(TopBar)).dy;
+
+      await tester.pumpWidget(withInset(const MapScreen()));
+      await tester.pumpAndSettle();
+      final mapTop = tester.getTopLeft(find.byType(MapHeader)).dy;
+
+      expect(
+        mapTop,
+        tabTop,
+        reason: 'map header must sit at the same y as the tab headers '
+            '(inset $inset, shared gap ${EcoTraceHeader.topPadding})',
+      );
+      // Both are derived from the shared constant, so pin the relationship to
+      // an absolute too: the map cannot be "aligned" by coincidence.
+      expect(mapTop, inset + EcoTraceHeader.topPadding);
+    }
+  });
+
+  testWidgets('the four tab headers share one top gap', (
+    WidgetTester tester,
+  ) async {
+    // Each header used to hard-code its own value and they had already drifted
+    // apart (16 on three screens, 12 on the dashboard), which is how a set of
+    // headers ends up visually misaligned.
+    Future<double> headerTopPadding(Widget screen, Finder firstRow) async {
+      // The Scaffold is supplied here because these screens are built to sit
+      // inside AppShell's IndexedStack; on their own they have no Material
+      // ancestor and the TopBar's buttons fail to build.
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: screen)));
+      await tester.pumpAndSettle();
+
+      // The header's own wrapper, not some inner Padding: find.ancestor walks
+      // the whole chain, and the title rows and text blocks have their own.
+      // `.first` is the nearest one, which is the header's padding.
+      final padding = find
+          .ancestor(of: firstRow, matching: find.byType(Padding))
+          .first;
+      expect(padding, findsOneWidget);
+      return tester
+          .widget<Padding>(padding)
+          .padding
+          .resolve(TextDirection.ltr)
+          .top;
+    }
+
+    // The three tab headers all open with the shared TopBar; the dashboard
+    // opens with a back button instead.
+    final tops = <double>[
+      await headerTopPadding(const EventsScreen(), find.byType(TopBar)),
+      await headerTopPadding(const AlertsScreen(), find.byType(TopBar)),
+      await headerTopPadding(const ProfileScreen(), find.byType(TopBar)),
+      await headerTopPadding(
+        const MonitoringProgressScreen(),
+        find.byTooltip('Back to events'),
+      ),
+    ];
+
+    // One value for all four, and it must be the compact one. The bound is
+    // deliberately tight: the original complaint was "too much empty space",
+    // and an assertion like `lessThan(16)` would have passed against the very
+    // layout that caused it.
+    for (final top in tops) {
+      expect(top, EcoTraceHeader.topPadding);
+      expect(top, lessThanOrEqualTo(4));
+    }
+
+    // And the gap really is just the constant, not the constant plus a second
+    // hidden inset. `SafeArea` is the only other contributor, so with no
+    // status bar in a test window the row must sit exactly at the padding.
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: const AlertsScreen())),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.byType(TopBar)).dy,
+      EcoTraceHeader.topPadding,
+    );
+  });
+
   testWidgets('renders the animated splash then auth entry screen', (
     WidgetTester tester,
   ) async {

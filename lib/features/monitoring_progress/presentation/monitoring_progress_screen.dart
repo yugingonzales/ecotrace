@@ -48,7 +48,12 @@ class _ProgressHeader extends StatelessWidget {
   Widget build(BuildContext context) => ColoredBox(
     color: EcoTraceColors.forest,
     child: Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 20, 18),
+      padding: const EdgeInsets.fromLTRB(
+        12,
+        EcoTraceHeader.topPadding,
+        20,
+        18,
+      ),
       child: Row(
         children: [
           IconButton(

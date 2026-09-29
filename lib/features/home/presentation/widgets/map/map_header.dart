@@ -20,6 +20,18 @@ class MapHeader extends StatelessWidget {
   final ConnectionStatus connection;
   final VoidCallback onToggleLayers;
 
+  /// Vertical padding above and below the pill's row, and the square that holds
+  /// the layer-toggle button. The row is as tall as that button, so the pill's
+  /// total height is exactly these three numbers.
+  static const double _paddingV = 6;
+  static const double _toggleSize = 38;
+
+  /// Height of the whole pill, exposed so `MapScreen` can stack its floating
+  /// controls underneath it without keeping a second, hand-tuned copy of this
+  /// number. It used to have exactly that: three absolute offsets written
+  /// against a header that was allowed to move, so they only lined up by luck.
+  static const double height = _paddingV * 2 + _toggleSize;
+
   /// Label, colour, and status are derived together so a new
   /// [ConnectionStatus] cannot be added without the header also being
   /// updated — an unmapped value falls back to the "unreachable" wording
@@ -42,7 +54,7 @@ class MapHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final connectionColor = _connectionColor;
     return Container(
-      padding: const EdgeInsets.fromLTRB(6, 6, 14, 6),
+      padding: const EdgeInsets.fromLTRB(6, _paddingV, 14, _paddingV),
       decoration: BoxDecoration(
         color: EcoTraceColors.forest.withValues(alpha: .94),
         borderRadius: BorderRadius.circular(20),
@@ -60,8 +72,8 @@ class MapHeader extends StatelessWidget {
                 onTap: onToggleLayers,
                 borderRadius: BorderRadius.circular(10),
                 child: Container(
-                  width: 38,
-                  height: 38,
+                  width: _toggleSize,
+                  height: _toggleSize,
                   decoration: BoxDecoration(
                     color: isSatellite
                         ? const Color(0xFFBFDBFF)
@@ -90,7 +102,7 @@ class MapHeader extends StatelessWidget {
                   'EcoTrace',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w800,
                   ),
                 ),

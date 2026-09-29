@@ -19,7 +19,12 @@ class ProfileScreen extends StatelessWidget {
           child: SafeArea(
             bottom: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+              padding: const EdgeInsets.fromLTRB(
+                20,
+                EcoTraceHeader.topPadding,
+                20,
+                16,
+              ),
               child: Column(
                 children: [
                   TopBar(edgeOffset: 20),
