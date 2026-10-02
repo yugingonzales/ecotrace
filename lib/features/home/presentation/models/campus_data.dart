@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'map_tree.dart';
 
 /// UEP Catarman, Northern Samar — surveyed planting site.
-///
+
 /// Mirror of the EcoTrace admin portal `site.ts` geometry so both apps share
 /// the same real-world coordinates.
 const double campusCenterLat = 12.5113;
@@ -55,9 +55,6 @@ const List<CampusZone> campusZones = [
   ),
 ];
 
-/// Complete tree inventory (admin `trees.ts`), transcribed 1:1 with real
-/// coordinates and admin statuses. 23 records: 11 verified, 6 pending,
-/// 4 incident, 2 unverified.
 const List<MapTree> campusTrees = [
   // ── Zone I ──────────────────────────────────────────────────────
   MapTree(

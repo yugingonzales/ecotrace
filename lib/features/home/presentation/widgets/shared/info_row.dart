@@ -34,27 +34,31 @@ class InfoRow extends StatelessWidget {
             child: Icon(icon, color: EcoTraceColors.forest, size: 18),
           ),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label.toUpperCase(),
-                style: const TextStyle(
-                  color: Color(0xFF7A9185),
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label.toUpperCase(),
+                  style: const TextStyle(
+                    color: Color(0xFF7A9185),
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 1),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: Color(0xFF0A231C),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
+                const SizedBox(height: 1),
+                Text(
+                  value,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF0A231C),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

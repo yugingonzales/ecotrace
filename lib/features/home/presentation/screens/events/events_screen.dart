@@ -74,15 +74,10 @@ class _EventsScreenState extends State<EventsScreen>
   final _joinedEvents = <String>{};
 
   /// Distinct days that actually have activities, as real dates.
-  List<DateTime> get _daysWithEvents => _events
-      .map((event) => AppDate.dayOf(event.date))
-      .toSet()
-      .toList()
-    ..sort();
+  List<DateTime> get _daysWithEvents =>
+      _events.map((event) => AppDate.dayOf(event.date)).toSet().toList()
+        ..sort();
 
-  /// Every event on the selected day, ignoring the search and joined-only
-  /// filters. The header count reflects what's actually scheduled rather than
-  /// how many survived filtering.
   List<LocalEvent> get _eventsForSelectedDay => _events
       .where((event) => AppDate.isSameDay(event.date, _selectedDay))
       .toList();
@@ -283,11 +278,6 @@ class _EventsScreenState extends State<EventsScreen>
   /// Collapses the calendar strip while the user scrolls further down the
   /// list, and brings it back when they reach the very top of the list.
   ///
-  /// The strip is deliberately *not* restored on an upward nudge: with many
-  /// event cards on screen the user wants the space back, so it stays out of
-  /// the way for the whole length of the list. The gap between
-  /// [_revealAtTop] and [_collapseAfter] keeps overscroll near the top from
-  /// flickering the header.
   bool _handleListScroll(ScrollNotification notification) {
     if (notification is! ScrollUpdateNotification) return false;
     // The horizontal calendar strip is a sibling of the list rather than a
@@ -317,9 +307,6 @@ class _EventsScreenState extends State<EventsScreen>
   /// Handles a participation request from either an event card or the details
   /// sheet, so both entry points behave identically.
   ///
-  /// Joining requires confirmation first and then issues a floating
-  /// participation receipt. Leaving an activity that is already joined stays a
-  /// silent toggle, since that is a withdrawal rather than a check-in.
   Future<void> _requestParticipation(LocalEvent event) async {
     if (_joinedEvents.contains(event.id)) {
       setState(() => _joinedEvents.remove(event.id));
@@ -357,8 +344,7 @@ class _EventsScreenState extends State<EventsScreen>
             ),
             _ConfirmationDetail(
               icon: Icons.schedule_rounded,
-              text:
-                  '${AppDate.scheduleHeading(event.date)} · ${event.time}',
+              text: '${AppDate.scheduleHeading(event.date)} · ${event.time}',
             ),
             _ConfirmationDetail(
               icon: Icons.location_on_outlined,
@@ -373,7 +359,7 @@ class _EventsScreenState extends State<EventsScreen>
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Enter event'),
+            child: const Text('Confirm joining'),
           ),
         ],
       ),
@@ -382,9 +368,6 @@ class _EventsScreenState extends State<EventsScreen>
   }
 
   Future<void> _showDetails(LocalEvent event) async {
-    // The sheet only reports that participation was requested; the actual
-    // confirm-then-receipt flow is shared with the event cards so both entry
-    // points behave identically.
     final requested = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: EcoTraceColors.canvas,
@@ -471,11 +454,6 @@ class _EventsScreenState extends State<EventsScreen>
                         ),
                       ),
                       ConstrainedBox(
-                        // The count is secondary to the title. On a 320dp
-                        // viewport an unconstrained badge laid out first and
-                        // took the whole row, squeezing the Expanded title to
-                        // a few pixels and wrapping it over 400px. Capping it
-                        // keeps the title readable at any width.
                         constraints: const BoxConstraints(maxWidth: 132),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
@@ -501,17 +479,7 @@ class _EventsScreenState extends State<EventsScreen>
                       ),
                     ],
                   ),
-                  // The strip animates away as the user scrolls into the
-                  // schedule, handing ~96px back to the list so long days of
-                  // event cards stay readable. AnimatedBuilder is required
-                  // here: setState alone would only rebuild once, before the
-                  // controller had advanced.
                   //
-                  // The 18px gap sits *inside* the collapsed child deliberately.
-                  // As a sibling it never animated away, so hiding the strip
-                  // still left 18px of gap plus the 16px header bottom padding
-                  // = 34px of dead green under the title. Collapsing both leaves
-                  // the intended 16px.
                   AnimatedBuilder(
                     animation: _stripCollapse,
                     builder: (context, strip) => ClipRect(

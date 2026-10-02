@@ -7,10 +7,6 @@ import '../../../../../core/theme/app_theme.dart';
 
 /// Camera-only evidence capture.
 ///
-/// Gallery access is deliberately not offered: the point of a field
-/// verification is that the capture happened at the plant, and a gallery
-/// import cannot demonstrate that. A photo taken five minutes ago from the
-/// office would be indistinguishable from one taken at the tree.
 class EvidenceCapture extends StatelessWidget {
   const EvidenceCapture({
     super.key,

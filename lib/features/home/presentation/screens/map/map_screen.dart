@@ -1,5 +1,10 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
 import '../../../../../core/connectivity/app_connectivity_scope.dart';
@@ -12,7 +17,6 @@ import '../../widgets/map/map_filter_panel.dart';
 import '../../widgets/map/map_header.dart';
 import '../../widgets/map/tree_details_card.dart';
 import '../incident/incident_report_screen.dart';
-import '../scanner/scanner_screen.dart';
 import '../verification/start_verification_flow.dart';
 
 class MapScreen extends StatefulWidget {
@@ -29,14 +33,28 @@ class _MapScreenState extends State<MapScreen> {
 
   bool _satellite = false;
   bool _filtersOpen = false;
+  bool _tracking = false;
   String? _zoneFilter;
   TreeStatus? _statusFilter;
   MapTree? _selectedTree;
+  Position? _currentPosition;
+  Set<String>? _nearbyTreeIds;
+  List<List<LatLng>> _routeSegments = const [];
+  bool _routing = false;
+  StreamSubscription<Position>? _positionSubscription;
 
-  /// In-session status overrides keyed by tree id. There is no database yet,
-  /// so a completed verification updates the map immediately and the change
-  /// lives only as long as the app does. A real backend replaces this map.
   final Map<String, TreeStatus> _verifiedStatuses = {};
+
+  LatLng get _currentPoint => _currentPosition == null
+      ? _gpsPoint
+      : LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
+
+  List<MapTree> get _displayTrees {
+    final trees = _trees;
+    final ids = _nearbyTreeIds;
+    if (ids == null) return trees;
+    return trees.where((tree) => ids.contains(tree.id)).toList(growable: false);
+  }
 
   List<MapTree> get _trees => _verifiedStatuses.isEmpty
       ? campusTrees
@@ -79,30 +97,228 @@ class _MapScreenState extends State<MapScreen> {
     setState(() => _statusFilter = status);
   }
 
-  void _recenter() => _mapController.move(_gpsPoint, 16);
+  void _recenter() => _mapController.move(_currentPoint, 16);
 
-  /// Scanning a tag is a way of *finding* a tree, not of verifying one, so it
-  /// sits on the map chrome rather than inside the verification flow. Its
-  /// manual-entry sheet is still the old single-page form; the verification
-  /// wizard supersedes it but the two are not merged yet.
-  void _openScanner() {
-    Navigator.of(context)
-        .push(MaterialPageRoute<void>(builder: (_) => const ScannerScreen()));
+  Future<void> _toggleTracking() async {
+    if (_tracking) {
+      await _positionSubscription?.cancel();
+      _positionSubscription = null;
+      if (mounted) setState(() => _tracking = false);
+      return;
+    }
+
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      if (!mounted) return;
+      await _showLocationPrompt(
+        'Location is off',
+        'Enable device location so EcoTrace can show your position on the map.',
+        Geolocator.openLocationSettings,
+      );
+      return;
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.deniedForever) {
+      if (!mounted) return;
+      await _showLocationPrompt(
+        'Location permission needed',
+        'Allow location access in system settings to use live tracking.',
+        Geolocator.openAppSettings,
+      );
+      return;
+    }
+    if (permission == LocationPermission.denied) return;
+
+    try {
+      final position = await Geolocator.getCurrentPosition();
+      if (!mounted) return;
+      setState(() {
+        _currentPosition = position;
+        _tracking = true;
+      });
+      _mapController.move(LatLng(position.latitude, position.longitude), 16);
+      _positionSubscription =
+          Geolocator.getPositionStream(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              distanceFilter: 3,
+            ),
+          ).listen((next) {
+            if (!mounted) return;
+            setState(() => _currentPosition = next);
+          });
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to read the current location.')),
+      );
+    }
+  }
+
+  Future<void> _showLocationPrompt(
+    String title,
+    String message,
+    Future<bool> Function() openSettings,
+  ) async {
+    final open = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Open settings'),
+          ),
+        ],
+      ),
+    );
+    if (open == true) await openSettings();
+  }
+
+  Future<void> _findNearbyTrees() async {
+    final controller = TextEditingController(text: '5');
+    final count = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nearby trees'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'How many trees?',
+            hintText: '1–20',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(context, int.tryParse(controller.text.trim())),
+            child: const Text('Find trees'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (!mounted || count == null) return;
+    final limit = count.clamp(1, 20).toInt();
+    final ranked = [..._trees]
+      ..sort((a, b) => _distanceTo(a).compareTo(_distanceTo(b)));
+    setState(() {
+      _nearbyTreeIds = ranked.take(limit).map((tree) => tree.id).toSet();
+      _selectedTree = null;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${_nearbyTreeIds!.length} nearby trees shown.')),
+    );
+  }
+
+  double _distanceTo(MapTree tree) => Distance().as(
+    LengthUnit.Meter,
+    _currentPoint,
+    LatLng(tree.lat, tree.lng),
+  );
+
+  void _clearNearbyTrees() => setState(() => _nearbyTreeIds = null);
+
+  Future<void> _traceTo(MapTree tree) async {
+    final start = _currentPoint;
+    setState(() {
+      _routeSegments = _dottedSegments(_campusCorridor(start, tree));
+      _routing = true;
+    });
+    _mapController.move(LatLng(tree.lat, tree.lng), 17);
+
+    try {
+      final route = await _requestRoadRoute(start, LatLng(tree.lat, tree.lng));
+      if (mounted && route.length > 1) {
+        setState(() => _routeSegments = _dottedSegments(route));
+      }
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Showing the local campus route while offline.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _routing = false);
+    }
+  }
+
+  List<LatLng> _campusCorridor(LatLng start, MapTree tree) {
+    return [
+      start,
+      LatLng(start.latitude, campusCenterLng),
+      LatLng(tree.lat, campusCenterLng),
+      LatLng(tree.lat, tree.lng),
+    ];
+  }
+
+  Future<List<LatLng>> _requestRoadRoute(
+    LatLng start,
+    LatLng destination,
+  ) async {
+    final uri = Uri.https(
+      'router.project-osrm.org',
+      '/route/v1/driving/${start.longitude},${start.latitude};${destination.longitude},${destination.latitude}',
+      {'overview': 'full', 'geometries': 'geojson', 'steps': 'false'},
+    );
+    final response = await http.get(uri).timeout(const Duration(seconds: 8));
+    if (response.statusCode != 200) throw StateError('Routing unavailable');
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final routes = json['routes'] as List<dynamic>?;
+    final geometry = routes != null && routes.isNotEmpty
+        ? routes.first['geometry'] as Map<String, dynamic>?
+        : null;
+    final coordinates = geometry?['coordinates'] as List<dynamic>?;
+    if (coordinates == null) throw StateError('No route returned');
+    return [
+      for (final coordinate in coordinates)
+        LatLng(
+          ((coordinate as List<dynamic>)[1] as num).toDouble(),
+          (coordinate[0] as num).toDouble(),
+        ),
+    ];
+  }
+
+  List<List<LatLng>> _dottedSegments(List<LatLng> points) {
+    final segments = <List<LatLng>>[];
+    for (var index = 0; index < points.length - 1; index += 2) {
+      segments.add([points[index], points[index + 1]]);
+    }
+    return segments;
+  }
+
+  void _clearRoute() => setState(() => _routeSegments = const []);
+
+  @override
+  void dispose() {
+    _positionSubscription?.cancel();
+    super.dispose();
   }
 
   /// Runs the proximity gate, the mode choice and the manual wizard, then
   /// reflects the accepted record on the map.
   Future<void> _startVerification(MapTree tree) async {
     final record = await Navigator.of(context).push<TreeRecord>(
-      MaterialPageRoute(
-        builder: (_) => StartVerificationFlow(tree: tree),
-      ),
+      MaterialPageRoute(builder: (_) => StartVerificationFlow(tree: tree)),
     );
     if (record == null || !mounted) return;
 
-    // A dead or missing plant is an incident on the map; a healthy sighting
-    // completes the verification. Both go to "Pending" in the first cut
-    // because nothing reviews the record yet.
     final status = switch (record.plantStatus) {
       PlantStatus.alive => TreeStatus.pending,
       PlantStatus.damaged || PlantStatus.dead => TreeStatus.incident,
@@ -135,31 +351,18 @@ class _MapScreenState extends State<MapScreen> {
   @override
   Widget build(BuildContext context) {
     final connection = AppConnectivityScope.statusOf(context);
-    // The map canvas is full-bleed, so it must NOT be wrapped in a SafeArea —
-    // that would strip a band of canvas off the top and expose whatever is
-    // behind it. Instead the status-bar inset is added to the floating chrome
-    // individually, which is the same arithmetic the other four tabs get for
-    // free from their `SafeArea`. Without it the pill sat at a flat 12px and
-    // climbed *higher* relative to the other tabs as the inset grew.
     final inset = MediaQuery.paddingOf(context).top;
 
     // Header sits at the same y as Events / Alerts / Profile / the dashboard:
     // the status-bar inset, then the one shared gap.
     final headerTop = inset + EcoTraceHeader.topPadding;
 
-    // Everything stacked below the header is offset from the header's real
-    // height plus a fixed gap, rather than from a hand-tuned absolute. These
-    // reproduce the previous visual rhythm (gaps of 18 / 10 / 8) but can no
-    // longer drift out of sync with it.
     final scannerTop = headerTop + MapHeader.height + 18;
     final filterTop = scannerTop + 42 + 10;
     final panelTop = filterTop + 42 + 8;
 
     return Stack(
       children: [
-        // The map canvas is memoized: chrome interactivity below (header,
-        // filters, details sheet) rebuilds only this Stack's overlay widgets,
-        // never the FlutterMap + tile + marker subtree.
         MapCanvas(
           mapController: _mapController,
           isSatellite: _satellite,
@@ -168,7 +371,11 @@ class _MapScreenState extends State<MapScreen> {
           selectedTreeId: _selectedTree?.id,
           onTreeSelected: _onTreeSelected,
           onMapTap: _onMapTap,
-          trees: _trees,
+          trees: _displayTrees,
+          gpsPoint: _currentPoint,
+          heading: _currentPosition?.heading ?? 0,
+          isTracking: _tracking,
+          routeSegments: _routeSegments,
         ),
         Positioned(
           left: 10,
@@ -201,50 +408,53 @@ class _MapScreenState extends State<MapScreen> {
         ),
         Positioned(
           top: scannerTop,
-          right: 12,
+          left: 12,
           child: Tooltip(
-            message: 'Scan a tree tag',
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: _openScanner,
-                customBorder: const CircleBorder(),
-                child: Container(
-                  width: 42,
-                  height: 42,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(color: Color(0x26000000), blurRadius: 10),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.qr_code_scanner_rounded,
-                    color: EcoTraceColors.forest,
-                    size: 21,
-                  ),
-                ),
-              ),
+            message: _tracking ? 'Stop live tracking' : 'Track my location',
+            child: _MapActionButton(
+              icon: _tracking ? Icons.my_location : Icons.gps_fixed_rounded,
+              label: _tracking ? 'Stop tracking' : 'Track my location',
+              onTap: _toggleTracking,
+              color: Colors.white,
+              iconColor: _tracking
+                  ? const Color(0xFF2563EB)
+                  : EcoTraceColors.forest,
             ),
           ),
         ),
         Positioned(
           top: filterTop,
-          right: 12,
+          left: 12,
           child: Tooltip(
-            message: 'Filters',
-            child: MapFilterButton(
-              open: _filtersOpen,
-              activeFilterCount: _activeFilterCount,
-              onTap: () => setState(() => _filtersOpen = !_filtersOpen),
+            message: 'Find nearby trees',
+            child: _MapActionButton(
+              icon: Icons.park_outlined,
+              label: 'Find nearby trees',
+              onTap: _findNearbyTrees,
+              color: _nearbyTreeIds == null
+                  ? EcoTraceColors.forest
+                  : const Color(0xFF2563EB),
             ),
           ),
         ),
+        if (_nearbyTreeIds != null)
+          Positioned(
+            top: panelTop + 50,
+            left: 12,
+            child: Tooltip(
+              message: 'Clear nearby tree results',
+              child: _MapActionButton(
+                icon: Icons.close_rounded,
+                label: 'Clear nearby',
+                onTap: _clearNearbyTrees,
+                color: EcoTraceColors.error,
+              ),
+            ),
+          ),
         if (_filtersOpen)
           Positioned(
             top: panelTop,
-            right: 12,
+            left: 12,
             child: MapFilterPanel(
               zoneFilter: _zoneFilter,
               statusFilter: _statusFilter,
@@ -253,32 +463,34 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
         Positioned(
-          right: 12,
+          top: panelTop,
+          left: 12,
+          child: Tooltip(
+            message: 'Filters',
+            child: _MapActionButton(
+              icon: Icons.tune_rounded,
+              label: 'Filters',
+              onTap: () => setState(() => _filtersOpen = !_filtersOpen),
+              color: _filtersOpen || _activeFilterCount > 0
+                  ? EcoTraceColors.forest
+                  : Colors.white,
+              iconColor: _filtersOpen || _activeFilterCount > 0
+                  ? Colors.white
+                  : EcoTraceColors.forest,
+            ),
+          ),
+        ),
+        Positioned(
+          left: 12,
           bottom: _selectedTree == null ? 92 : 330,
           child: Tooltip(
-            message: 'Recenter on campus',
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: _recenter,
-                customBorder: const CircleBorder(),
-                child: Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: const [
-                      BoxShadow(color: Color(0x26000000), blurRadius: 10),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.navigation_rounded,
-                    color: EcoTraceColors.forest,
-                    size: 22,
-                  ),
-                ),
-              ),
+            message: 'Recenter on my location',
+            child: _MapActionButton(
+              icon: Icons.navigation_rounded,
+              label: 'Recenter map',
+              onTap: _recenter,
+              color: Colors.white,
+              iconColor: EcoTraceColors.forest,
             ),
           ),
         ),
@@ -300,10 +512,70 @@ class _MapScreenState extends State<MapScreen> {
                         _startVerification(_selectedTree!),
                     onReportIncident: () =>
                         _openIncidentReport(_selectedTree!.id),
+                    onTrace: () => _traceTo(_selectedTree!),
+                    isTracing: _routing,
+                    hasRoute: _routeSegments.isNotEmpty,
+                    onClearRoute: _clearRoute,
                   ),
           ),
         ),
       ],
     );
   }
+}
+
+class _MapActionButton extends StatelessWidget {
+  const _MapActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    required this.color,
+    this.iconColor = Colors.white,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Color color;
+  final Color iconColor;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.transparent,
+    child: InkWell(
+      onTap: onTap,
+      customBorder: const CircleBorder(),
+      child: Container(
+        width: 188,
+        height: 44,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: const [
+            BoxShadow(color: Color(0x26000000), blurRadius: 10),
+          ],
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: 13),
+            Icon(icon, color: iconColor, size: 20),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: iconColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+          ],
+        ),
+      ),
+    ),
+  );
 }

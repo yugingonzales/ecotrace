@@ -17,9 +17,6 @@ class TreeMarker extends StatelessWidget {
   final bool selected;
   final VoidCallback? onTap;
 
-  /// Each marker paints onto its own raster layer (via [RepaintBoundary]) so
-  /// the compositor simply translates cached marker paintings during camera
-  /// pans instead of re-drawing all shadows + labels every frame.
   @override
   Widget build(BuildContext context) => RepaintBoundary(
     child: GestureDetector(

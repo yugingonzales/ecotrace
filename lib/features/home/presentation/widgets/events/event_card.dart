@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../core/theme/app_theme.dart';
-import '../shared/avatar.dart';
 import '../shared/surface_card.dart';
 
 class EventCard extends StatelessWidget {
@@ -76,10 +75,19 @@ class EventCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const Icon(
-                    Icons.chevron_right_rounded,
-                    color: EcoTraceColors.muted,
-                    size: 22,
+                  TextButton.icon(
+                    onPressed: onOpen,
+                    icon: const Icon(Icons.open_in_new_rounded, size: 15),
+                    label: const Text('View details'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: EcoTraceColors.forest,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: Size.zero,
+                      textStyle: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -121,15 +129,18 @@ class EventCard extends StatelessWidget {
                   Expanded(
                     child: Row(
                       children: [
-                        Avatar('JA'),
-                        Avatar('MC'),
-                        Avatar('KV'),
-                        SizedBox(width: 6),
-                        Flexible(
+                        const Icon(
+                          Icons.groups_outlined,
+                          color: EcoTraceColors.muted,
+                          size: 17,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
                           child: Text(
-                            '+$attendeeCount joined',
+                            '$attendeeCount participants',
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: Color(0xFF7A9185),
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
@@ -155,7 +166,7 @@ class EventCard extends StatelessWidget {
                       minimumSize: Size.zero,
                     ),
                     child: Text(
-                      joined ? 'Joined' : 'Confirm',
+                      joined ? 'Leave activity' : 'Join activity',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,

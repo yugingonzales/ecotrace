@@ -1,9 +1,6 @@
 /// Date helpers shared by every date-aware surface (calendar strip, full
 /// calendar, event cards, participation receipt).
 ///
-/// Centralised so no screen has to re-derive weekday alignment, month lengths
-/// or "today" comparisons — the class of bug that comes from hard-coding
-/// `daysInMonth` or assuming the 1st of the month is a Monday.
 class AppDate {
   const AppDate._();
 

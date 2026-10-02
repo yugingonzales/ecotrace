@@ -8,12 +8,16 @@ class TopBar extends StatelessWidget {
     this.onSearch,
     this.onFilter,
     this.onCalendar,
+    this.showSearch = true,
+    this.showFilter = true,
     this.edgeOffset = 4,
   });
 
   final VoidCallback? onSearch;
   final VoidCallback? onFilter;
   final VoidCallback? onCalendar;
+  final bool showSearch;
+  final bool showFilter;
 
   /// Pushes the action buttons closer to the right edge of the screen
   /// (beyond the header's standard 20px padding).
@@ -62,17 +66,20 @@ class TopBar extends StatelessWidget {
               ),
               const SizedBox(width: 2),
             ],
-            _buildActionButton(
-              icon: Icons.search_rounded,
-              tooltip: 'Search',
-              onPressed: onSearch,
-            ),
-            const SizedBox(width: 2),
-            _buildActionButton(
-              icon: Icons.tune_rounded,
-              tooltip: 'Filter',
-              onPressed: onFilter,
-            ),
+            if (showSearch) ...[
+              _buildActionButton(
+                icon: Icons.search_rounded,
+                tooltip: 'Search',
+                onPressed: onSearch,
+              ),
+              const SizedBox(width: 2),
+            ],
+            if (showFilter)
+              _buildActionButton(
+                icon: Icons.tune_rounded,
+                tooltip: 'Filter',
+                onPressed: onFilter,
+              ),
           ],
         ),
       ),

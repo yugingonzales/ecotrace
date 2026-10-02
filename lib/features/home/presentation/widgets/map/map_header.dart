@@ -13,29 +13,14 @@ class MapHeader extends StatelessWidget {
 
   final bool isSatellite;
 
-  /// The current network state. Three states rather than a bool because
-  /// "transport attached but the internet is not reachable" is the case where
-  /// a binary flag would tell the user the map is online while every tile
-  /// request fails.
   final ConnectionStatus connection;
   final VoidCallback onToggleLayers;
 
-  /// Vertical padding above and below the pill's row, and the square that holds
-  /// the layer-toggle button. The row is as tall as that button, so the pill's
-  /// total height is exactly these three numbers.
   static const double _paddingV = 6;
   static const double _toggleSize = 38;
 
-  /// Height of the whole pill, exposed so `MapScreen` can stack its floating
-  /// controls underneath it without keeping a second, hand-tuned copy of this
-  /// number. It used to have exactly that: three absolute offsets written
-  /// against a header that was allowed to move, so they only lined up by luck.
   static const double height = _paddingV * 2 + _toggleSize;
 
-  /// Label, colour, and status are derived together so a new
-  /// [ConnectionStatus] cannot be added without the header also being
-  /// updated — an unmapped value falls back to the "unreachable" wording
-  /// rather than silently claiming a working connection.
   String get _label => switch (connection) {
         ConnectionStatus.online => 'Online',
         ConnectionStatus.offline => 'Offline',

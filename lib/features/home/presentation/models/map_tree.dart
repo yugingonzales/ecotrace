@@ -23,7 +23,7 @@ extension TreeStatusX on TreeStatus {
 }
 
 /// A georeferenced tree from the admin portal inventory.
-///
+
 /// Mirrors the admin `TreeMarker` shape so the Flutter map renders the exact
 /// real-world coordinates, statuses and zone membership of UEP Catarman.
 class MapTree {

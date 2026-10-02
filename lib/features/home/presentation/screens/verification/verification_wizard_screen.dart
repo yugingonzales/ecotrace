@@ -9,7 +9,7 @@ import '../../widgets/verification/evidence_capture.dart';
 import '../../widgets/verification/step_rail.dart';
 
 /// The manual verification wizard.
-///
+
 /// Owns the draft, the current step and the step-by-step validation, and
 /// returns a [TreeRecord] to the caller on submit.
 class VerificationWizardScreen extends StatefulWidget {
@@ -48,9 +48,6 @@ class _VerificationWizardScreenState extends State<VerificationWizardScreen> {
   void _setStatus(PlantStatus value) {
     setState(() {
       _draft = _draft.copyWith(status: value);
-      // A missing plant invalidates anything measured or photographed for a
-      // plant that used to be there, so drop it rather than carrying stale
-      // numbers into the record.
       if (!value.requiresMeasurements) {
         _dbh.clear();
         _crown.clear();
@@ -74,9 +71,6 @@ class _VerificationWizardScreenState extends State<VerificationWizardScreen> {
     setState(() => _step = step);
   }
 
-  /// Continue from the status step. A missing plant has nothing to measure and
-  /// nothing to photograph, so it jumps straight to review rather than making
-  /// the officer tap through two steps that only show an explanation.
   void _advanceFromStatus() {
     if (_draft.status == PlantStatus.missing) {
       setState(() => _step = VerificationStep.review);
@@ -449,10 +443,6 @@ class _MeasurementStep extends StatelessWidget {
 
   /// Validates a measurement entered in the field.
   ///
-  /// Both fields are entered and stored in centimetres, so the comparison is
-  /// direct. An earlier version took a unit conversion and multiplied the
-  /// entry by it, which silently applied one unit to both fields and made
-  /// every realistic measurement un-submittable.
   static String? _validate(
     String? raw,
     String label,

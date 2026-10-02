@@ -5,9 +5,6 @@ import '../../../../../core/theme/app_theme.dart';
 
 /// Month grid of scheduled field activities.
 ///
-/// The visible month is real state rather than a constant, so the header, the
-/// number of cells and the leading blanks all follow the calendar — including
-/// leap Februaries and months that begin on a Saturday.
 class FullCalendarSheet extends StatefulWidget {
   const FullCalendarSheet({
     super.key,

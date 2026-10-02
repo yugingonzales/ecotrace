@@ -11,11 +11,7 @@ import '../../models/local_event.dart';
 const kParticipationReceiptDuration = Duration(seconds: 3);
 
 /// Shows the participation receipt as a floating pass above the current screen.
-///
-/// The pass blocks the underlying interaction while it is on screen, drains a
-/// countdown bar over [kParticipationReceiptDuration] and then dismisses
-/// itself. Tapping the scrim dismisses it early.
-///
+
 /// [useRootNavigator] defaults to `true` so the receipt floats above the app
 /// shell's bottom navigation rather than being clipped to the body.
 Future<void> showParticipationReceipt(
@@ -155,9 +151,6 @@ class ParticipationReceiptCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // Time is what the user most needs at a glance, so it leads
-                  // the detail rows as a pill instead of sharing the muted
-                  // icon-row treatment everything below it uses.
                   _TimePill(
                     label:
                         '${AppDate.scheduleHeading(event.date)} · ${event.time}',
@@ -310,9 +303,6 @@ class ParticipationReceiptCard extends StatelessWidget {
   }
 }
 
-/// The event time, set in a lemon pill so it stands out from the muted rows
-/// below it. Keeps the same bottom spacing as [_ReceiptRow] so the detail
-/// block stays rhythmically aligned.
 class _TimePill extends StatelessWidget {
   const _TimePill({required this.label});
 

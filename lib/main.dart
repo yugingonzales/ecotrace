@@ -6,10 +6,10 @@ import 'core/connectivity/app_connectivity_scope.dart';
 import 'core/connectivity/connectivity_banner_host.dart';
 import 'core/connectivity/connectivity_controller.dart';
 import 'core/theme/app_theme.dart';
-import 'features/splash/presentation/splash_screen.dart';
+import 'features/home/presentation/app_shell.dart';
 
 /// Builds and runs [EcoTraceApp], the campus tree-tracking PWA.
-///
+
 /// Widget tests that only care about [AppShell] or auth screens can still
 /// mount `MaterialApp(home: …)` directly without the connectivity scaffold.
 void main() => runApp(const EcoTraceApp());
@@ -28,8 +28,7 @@ class EcoTraceApp extends StatefulWidget {
 class _EcoTraceAppState extends State<EcoTraceApp> {
   late final ConnectivityController _connectivity =
       widget.connectivityController ?? ConnectivityController();
-  late final bool _ownsConnectivity =
-      widget.connectivityController == null;
+  late final bool _ownsConnectivity = widget.connectivityController == null;
 
   final _navigatorKey = GlobalKey<NavigatorState>();
   final _messengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -54,7 +53,7 @@ class _EcoTraceAppState extends State<EcoTraceApp> {
       theme: EcoTraceTheme.light,
       navigatorKey: _navigatorKey,
       scaffoldMessengerKey: _messengerKey,
-      home: const SplashScreen(),
+      home: const AppShell(),
       builder: (context, child) => AppConnectivityScope(
         notifier: _connectivity,
         child: ConnectivityBannerHost(

@@ -28,6 +28,7 @@ import 'package:ecotrace/features/home/presentation/screens/alerts/alerts_screen
 import 'package:ecotrace/features/home/presentation/screens/events/events_screen.dart';
 import 'package:ecotrace/features/home/presentation/screens/map/map_screen.dart';
 import 'package:ecotrace/features/home/presentation/screens/profile/profile_screen.dart';
+import 'package:ecotrace/features/auth/presentation/staff_auth_screen.dart';
 import 'package:ecotrace/features/home/presentation/widgets/map/map_header.dart';
 import 'package:ecotrace/features/home/presentation/widgets/shared/top_bar.dart';
 import 'package:ecotrace/features/monitoring_progress/presentation/monitoring_progress_screen.dart';
@@ -42,14 +43,17 @@ void main() {
     // screen position rather than on a padding value, because a wrong top is
     // exactly what a padding-only assertion cannot see.
     for (final inset in <double>[24, 28, 40]) {
-      Widget withInset(Widget child) => MediaQuery(
-            data: MediaQueryData(padding: EdgeInsets.only(top: inset)),
-            child: Scaffold(body: child),
-          );
-
-      await tester.pumpWidget(
-        withInset(const AlertsScreen()),
+      // MaterialApp supplies Directionality and the Material ancestors these
+      // screens need; MediaQuery sits *inside* it so the explicit padding wins
+      // over the one MaterialApp derives from the (zero-sized) test view.
+      Widget withInset(Widget child) => MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(padding: EdgeInsets.only(top: inset)),
+          child: Scaffold(body: child),
+        ),
       );
+
+      await tester.pumpWidget(withInset(const AlertsScreen()));
       await tester.pumpAndSettle();
       final tabTop = tester.getTopLeft(find.byType(TopBar)).dy;
 
@@ -60,7 +64,8 @@ void main() {
       expect(
         mapTop,
         tabTop,
-        reason: 'map header must sit at the same y as the tab headers '
+        reason:
+            'map header must sit at the same y as the tab headers '
             '(inset $inset, shared gap ${EcoTraceHeader.topPadding})',
       );
       // Both are derived from the shared constant, so pin the relationship to
@@ -130,23 +135,13 @@ void main() {
     );
   });
 
-  testWidgets('renders the animated splash then auth entry screen', (
+  testWidgets('launches directly into the main application shell', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const EcoTraceApp());
 
-    // Splash screen is shown first with its branding.
-    expect(find.text('EcoTrace'), findsOneWidget);
-    expect(find.text('Environmental Tracking System'), findsOneWidget);
-
-    // Advance through the staggered animation (~3.1s) and the route fade.
-    await tester.pump(const Duration(milliseconds: 3200));
-    await tester.pump(const Duration(milliseconds: 600));
-    await tester.pumpAndSettle(const Duration(milliseconds: 100));
-
-    expect(find.text('Username *'), findsOneWidget);
-    expect(find.text('Password *'), findsOneWidget);
-    expect(find.text('Login'), findsOneWidget);
+    expect(find.text("Today's schedule"), findsOneWidget);
+    expect(find.byIcon(Icons.map_outlined), findsOneWidget);
   });
 
   testWidgets('navigates between the reference frontend surfaces', (
@@ -163,6 +158,41 @@ void main() {
     await tester.tap(find.byIcon(Icons.notifications_none_rounded));
     await tester.pump();
     expect(find.text('GOOD MORNING!'), findsOneWidget);
+  });
+
+  testWidgets('filters alerts through the shared alert tabs', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: AlertsScreen())),
+    );
+
+    expect(find.text('Monitoring team selection'), findsOneWidget);
+    expect(find.text('Mandatory tree survey'), findsOneWidget);
+    await tester.tap(find.text('By date'));
+    await tester.pump();
+
+    expect(find.text('Mandatory tree survey'), findsOneWidget);
+    expect(find.text('Monitoring team selection'), findsNothing);
+  });
+
+  testWidgets('edits profile contact fields and saves them', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: ProfileScreen())),
+    );
+
+    expect(find.text('monitoring.staff@ecotrace.local'), findsOneWidget);
+    await tester.tap(find.text('Edit'));
+    await tester.pump();
+    final fields = find.byType(TextFormField);
+    expect(fields, findsNWidgets(3));
+    await tester.enterText(fields.at(0), 'field.team@ecotrace.local');
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+
+    expect(find.text('field.team@ecotrace.local'), findsOneWidget);
   });
 
   testWidgets('opens field progress from the center action and stays usable', (
@@ -281,11 +311,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const EcoTraceApp());
-
-    // Skip the splash sequence to reach the auth form.
-    await tester.pump(const Duration(milliseconds: 3200));
-    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpWidget(const MaterialApp(home: StaffAuthScreen()));
 
     expect(find.text('Login'), findsOneWidget);
     await tester.ensureVisible(find.byIcon(Icons.visibility_outlined));
@@ -344,11 +370,11 @@ void main() {
 
     await tester.tap(find.text('Tree planting & tagging'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Confirm participation'));
+    await tester.tap(find.text('Join this activity'));
     await tester.pumpAndSettle();
 
     // The dialog summarises the event before anything is recorded.
-    expect(find.text('Enter event'), findsOneWidget);
+    expect(find.text('Confirm joining'), findsOneWidget);
     // The location shows both in the dialog and on the card behind it.
     expect(find.text('Sector 4 Reforestation Zone'), findsWidgets);
     expect(find.text('Joined'), findsNothing);
@@ -356,11 +382,11 @@ void main() {
     await tester.tap(find.text('Not now'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Enter event'), findsNothing);
+    expect(find.text('Join activity'), findsOneWidget);
     expect(find.text("You're in!"), findsNothing);
     expect(find.text('Joined'), findsNothing);
     // Back on the list, the card's own action still offers to join.
-    expect(find.text('Confirm'), findsOneWidget);
+    expect(find.text('Join activity'), findsOneWidget);
   });
 
   testWidgets('confirmed participation shows a receipt that auto-dismisses', (
@@ -370,9 +396,9 @@ void main() {
 
     await tester.tap(find.text('Tree planting & tagging'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Confirm participation'));
+    await tester.tap(find.text('Join this activity'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Enter event'));
+    await tester.tap(find.text('Confirm joining'));
     // Pump a bounded amount so the receipt is on screen but its 3s window has
     // not elapsed; pumpAndSettle here would wait the receipt out.
     await tester.pump();
@@ -392,14 +418,14 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Joined'), findsOneWidget);
+    expect(find.text('Leave activity'), findsOneWidget);
 
     // It clears itself after the receipt window, driven by the ticker so the
     // test needs no real-time delay.
     await tester.pump(kParticipationReceiptDuration);
     await tester.pumpAndSettle();
     expect(find.text("You're in!"), findsNothing);
-    expect(find.text('Joined'), findsOneWidget);
+    expect(find.text('Leave activity'), findsOneWidget);
   });
 
   testWidgets('participation receipt can be dismissed early by tapping it', (
@@ -409,9 +435,9 @@ void main() {
 
     await tester.tap(find.text('Tree planting & tagging'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Confirm participation'));
+    await tester.tap(find.text('Join this activity'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Enter event'));
+    await tester.tap(find.text('Confirm joining'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text("You're in!"), findsOneWidget);
@@ -470,13 +496,13 @@ void main() {
 
     await tester.tap(find.text('Tree planting & tagging'));
     await tester.pumpAndSettle();
-    expect(find.text('Confirm participation'), findsOneWidget);
+    expect(find.text('Join this activity'), findsOneWidget);
 
-    await tester.tap(find.text('Confirm participation'));
+    await tester.tap(find.text('Join this activity'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Enter event'));
+    await tester.tap(find.text('Confirm joining'));
     await tester.pumpAndSettle();
-    expect(find.text('Joined'), findsOneWidget);
+    expect(find.text('Leave activity'), findsOneWidget);
     await tester.pump(kParticipationReceiptDuration);
     await tester.pumpAndSettle();
 
@@ -502,20 +528,37 @@ void main() {
     expect(find.text('Verification feedback review'), findsOneWidget);
   });
 
-  testWidgets('opens the tag scanner from the map chrome', (
+  testWidgets('replaces the tag scanner with live tracking', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: AppShell()));
 
-    // Scanning a tag finds a tree; it is not the verification entry point.
     await tester.tap(find.byIcon(Icons.map_outlined));
     await tester.pump(const Duration(milliseconds: 250));
 
-    await tester.tap(find.byIcon(Icons.qr_code_scanner_rounded));
-    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.qr_code_scanner_rounded), findsNothing);
+    expect(find.byTooltip('Track my location'), findsOneWidget);
+  });
 
-    expect(find.text('Scan NFC or QR tag'), findsOneWidget);
-    expect(find.text('Enter tree details manually'), findsOneWidget);
+  testWidgets('traces a route from a selected tree', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: AppShell()));
+    await tester.tap(find.byIcon(Icons.map_outlined));
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.tap(find.text('TRE-1508'));
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('Start navigation'), findsOneWidget);
+    final traceButton = find.ancestor(
+      of: find.text('Start navigation'),
+      matching: find.byType(OutlinedButton),
+    );
+    tester.widget<OutlinedButton>(traceButton).onPressed!();
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('tree-route')), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('offers the analysis mode before locating the officer', (
@@ -577,12 +620,7 @@ void main() {
   testWidgets('links between login and sign-up via the bottom prompt', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const EcoTraceApp());
-
-    // Skip the splash sequence to reach the auth form.
-    await tester.pump(const Duration(milliseconds: 3200));
-    await tester.pump(const Duration(milliseconds: 600));
-    await tester.pumpAndSettle(const Duration(milliseconds: 100));
+    await tester.pumpWidget(const MaterialApp(home: StaffAuthScreen()));
 
     // Defaults to the login view with the sign-up prompt below the card.
     expect(find.text('Login'), findsOneWidget);
@@ -697,34 +735,38 @@ void main() {
   // reports `mobile` when data is switched on with no load or no plan, so a
   // transport-only check claims a connection the user cannot use.
 
-  testWidgets('treats an attached transport with a failing probe as unreachable', (
-    WidgetTester tester,
-  ) async {
-    // Transport present, probe failing - the "data on but no internet" case.
-    _mockConnectivity(tester, ['mobile']);
-    final controller = ConnectivityController(
-      probe: ScriptedProbe(false),
-      heartbeat: null,
-    );
-    final messengerKey = GlobalKey<ScaffoldMessengerState>();
+  testWidgets(
+    'treats an attached transport with a failing probe as unreachable',
+    (WidgetTester tester) async {
+      // Transport present, probe failing - the "data on but no internet" case.
+      _mockConnectivity(tester, ['mobile']);
+      final controller = ConnectivityController(
+        probe: ScriptedProbe(false),
+        heartbeat: null,
+      );
+      final messengerKey = GlobalKey<ScaffoldMessengerState>();
 
-    await tester.pumpWidget(
-      _connectivityHarness(controller: controller, messengerKey: messengerKey),
-    );
-    await tester.pump();
-    // Let the seeded probe resolve and the debounce settle.
-    await tester.pump(const Duration(milliseconds: 700));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        _connectivityHarness(
+          controller: controller,
+          messengerKey: messengerKey,
+        ),
+      );
+      await tester.pump();
+      // Let the seeded probe resolve and the debounce settle.
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.map_outlined));
-    await tester.pump(const Duration(milliseconds: 250));
+      await tester.tap(find.byIcon(Icons.map_outlined));
+      await tester.pump(const Duration(milliseconds: 250));
 
-    // Must NOT claim to be online, and must not use the offline wording.
-    expect(find.text('Online'), findsNothing);
-    expect(find.text('Offline'), findsNothing);
-    expect(find.text('No internet'), findsOneWidget);
-    expect(controller.value, ConnectionStatus.unreachable);
-  });
+      // Must NOT claim to be online, and must not use the offline wording.
+      expect(find.text('Online'), findsNothing);
+      expect(find.text('Offline'), findsNothing);
+      expect(find.text('No internet'), findsOneWidget);
+      expect(controller.value, ConnectionStatus.unreachable);
+    },
+  );
 
   testWidgets('recovers from unreachable once the probe starts succeeding', (
     WidgetTester tester,
@@ -766,56 +808,62 @@ void main() {
     controller.dispose();
   });
 
-  test('discards a probe that finishes after a newer transport evaluation', () async {
-    // A probe is slow, and the transport changes while it is in flight. The
-    // probe's "online" answer is older information than the "offline" the
-    // newer evaluation already published, so applying it would show a
-    // connection the user has actually lost.
-    final events = _MockConnectivityPlatform(
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger,
-      ['wifi'],
-    );
-    final probe = CompleterProbe();
-    final controller = ConnectivityController(
-      probe: probe,
-      heartbeat: null,
-    );
-    addTearDown(controller.dispose);
+  test(
+    'discards a probe that finishes after a newer transport evaluation',
+    () async {
+      // A probe is slow, and the transport changes while it is in flight. The
+      // probe's "online" answer is older information than the "offline" the
+      // newer evaluation already published, so applying it would show a
+      // connection the user has actually lost.
+      final events = _MockConnectivityPlatform(
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger,
+        ['wifi'],
+      );
+      final probe = CompleterProbe();
+      final controller = ConnectivityController(probe: probe, heartbeat: null);
+      addTearDown(controller.dispose);
 
-    final seen = <ConnectionStatus>[];
-    controller.addListener(() => seen.add(controller.value));
+      final seen = <ConnectionStatus>[];
+      controller.addListener(() => seen.add(controller.value));
 
-    // Startup: transport present, so the probe starts and stalls.
-    controller.initialize();
-    await probe.started.future;
+      // Startup: transport present, so the probe starts and stalls.
+      controller.initialize();
+      await probe.started.future;
 
-    // Transport drops while the probe is still outstanding.
-    events.emit(['none']);
-    // Past the debounce window, so the offline evaluation has been applied.
-    await Future<void>.delayed(
-      ConnectivityController.debounceDuration + const Duration(milliseconds: 50),
-    );
-    expect(controller.value, ConnectionStatus.offline);
+      // Transport drops while the probe is still outstanding.
+      events.emit(['none']);
+      // Past the debounce window, so the offline evaluation has been applied.
+      await Future<void>.delayed(
+        ConnectivityController.debounceDuration +
+            const Duration(milliseconds: 50),
+      );
+      expect(controller.value, ConnectionStatus.offline);
 
-    // The stale probe now reports success. It must not resurrect "online".
-    probe.complete(true);
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+      // The stale probe now reports success. It must not resurrect "online".
+      probe.complete(true);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
 
-    expect(controller.value, ConnectionStatus.offline);
-    expect(seen, isNot(contains(ConnectionStatus.online)));
-    events.dispose();
-  });
+      expect(controller.value, ConnectionStatus.offline);
+      expect(seen, isNot(contains(ConnectionStatus.online)));
+      events.dispose();
+    },
+  );
 
-  test('probe reports unreachable rather than throwing on a dead endpoint', () async {
-    // Port 9 (discard) on loopback refuses connections immediately and
-    // identically on every platform, so this is a deterministic failure
-    // without depending on the sandbox's network policy.
-    final probe = HttpInternetProbe(endpoint: Uri.parse('http://127.0.0.1:9/'));
+  test(
+    'probe reports unreachable rather than throwing on a dead endpoint',
+    () async {
+      // Port 9 (discard) on loopback refuses connections immediately and
+      // identically on every platform, so this is a deterministic failure
+      // without depending on the sandbox's network policy.
+      final probe = HttpInternetProbe(
+        endpoint: Uri.parse('http://127.0.0.1:9/'),
+      );
 
-    // A throwing probe would escape into the connectivity stream and take the
-    // subscription down, so the contract is that failures resolve to false.
-    expect(await probe.isReachable(), isFalse);
-  });
+      // A throwing probe would escape into the connectivity stream and take the
+      // subscription down, so the contract is that failures resolve to false.
+      expect(await probe.isReachable(), isFalse);
+    },
+  );
 }
 
 /// Probe whose single call stalls until the test completes it by hand, so a
@@ -845,8 +893,9 @@ class CompleterProbe implements InternetProbe {
 class _MockConnectivityPlatform {
   static const String _statusChannel =
       'dev.fluttercommunity.plus/connectivity_status';
-  static const MethodChannel _methodChannel =
-      MethodChannel('dev.fluttercommunity.plus/connectivity');
+  static const MethodChannel _methodChannel = MethodChannel(
+    'dev.fluttercommunity.plus/connectivity',
+  );
 
   /// Captured in the constructor: `TestDefaultBinaryMessengerBinding.instance`
   /// is not a constant expression, and the two closures below need it.
@@ -855,26 +904,27 @@ class _MockConnectivityPlatform {
   _MockConnectivityPlatform(this._messenger, List<String> initial) {
     _current = List<String>.of(initial);
 
-    _messenger.setMockMethodCallHandler(_methodChannel, (MethodCall call) async {
+    _messenger.setMockMethodCallHandler(_methodChannel, (
+      MethodCall call,
+    ) async {
       if (call.method == 'check') return _current;
       return null;
     });
 
-    _messenger.setMockMethodCallHandler(
-      const MethodChannel(_statusChannel),
-      (MethodCall call) async {
-        if (call.method == 'listen') {
-          // The framework only starts pushing once `listen` succeeds, so the
-          // initial value has to be delivered in the same reply.
-          await _messenger.handlePlatformMessage(
-            _statusChannel,
-            const StandardMethodCodec().encodeSuccessEnvelope(_current),
-            (_) {},
-          );
-        }
-        return null;
-      },
-    );
+    _messenger.setMockMethodCallHandler(const MethodChannel(_statusChannel), (
+      MethodCall call,
+    ) async {
+      if (call.method == 'listen') {
+        // The framework only starts pushing once `listen` succeeds, so the
+        // initial value has to be delivered in the same reply.
+        await _messenger.handlePlatformMessage(
+          _statusChannel,
+          const StandardMethodCodec().encodeSuccessEnvelope(_current),
+          (_) {},
+        );
+      }
+      return null;
+    });
   }
 
   late List<String> _current;

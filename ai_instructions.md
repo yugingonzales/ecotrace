@@ -63,6 +63,22 @@ You are operating as an autonomous AI coding assistant. To ensure enterprise-gra
   > write from now on: keep new comments to non-obvious *whys*, and do not
   > narrate what the code plainly does.
 
+### C. Documentation — single source of truth
+
+* **All project documentation lives in `DOCUMENTATION.md`.** Do **not** create
+  new top-level `*.md` files to record progress, audits, phases or plans. Append
+  a row to the **Progress log** (§11) and update the relevant section instead.
+
+* **📌 Ruling, 2026-10-03 (user):** ten separate progress/audit/plan documents
+  were merged into `DOCUMENTATION.md` and deleted. Before recording anything
+  there, **re-verify the claim against the working tree** — do not copy numbers
+  forward from an older log row. Historical rows keep the count that was true
+  when written; only the *Current status* section states the live figures.
+
+* `ai_instructions.md` (this file) is exempt: it is the operating protocol, not
+  project documentation. `README.md` is exempt: it is a short front door that
+  points at `DOCUMENTATION.md`, and must not duplicate it.
+
 * **Single Responsibility Principle (SRP):** Keep functions, classes, and components small and focused on doing one thing well.
 
 * **Error Handling:** Implement robust, defensive error handling and clear logging rather than swallowing errors or failing silently.

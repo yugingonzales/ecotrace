@@ -5,9 +5,6 @@ import '../../../../../core/theme/app_theme.dart';
 
 /// Horizontally scrolling run of selectable days starting at [startDay].
 ///
-/// The window is anchored on a real date rather than a hard-coded list of
-/// day numbers, so weekdays, month boundaries and the "today" marker are all
-/// derived from the calendar instead of assumed.
 class CalendarStrip extends StatelessWidget {
   const CalendarStrip({
     super.key,

@@ -7,24 +7,7 @@ import 'connection_status.dart';
 import 'connectivity_controller.dart';
 
 /// Renders global network notices above every route of the app.
-///
-/// Notices are driven by [ConnectionStatus.isUsable] rather than by a
-/// transport check, and the two failure states are worded differently because
-/// the user's next action differs:
-/// - no usable connection → offline → online transition → "Internet Connected".
-/// - usable → any failure → "No internet connection".
-/// - failure → usable → "Internet Connected".
-///
-/// [ConnectionStatus.unreachable] — a transport attached but the reachability
-/// probe failing, e.g. mobile data on with no load — is deliberately *not*
-/// reported as connected, and gets its own "No internet access" wording to
-/// distinguish "nothing is attached" from "something is attached but the
-/// internet does not work".
-///
-/// Startup connectivity is resolved silently (no dialog); the status simply
-/// seeds the map header / sync indicators, and the first transition after
-/// launch raises a snack bar.
-///
+
 /// Lives in `MaterialApp.builder` (above the Navigator) so the notices cover
 /// the splash screen, auth flow, shell, and every pushed route.
 class ConnectivityBannerHost extends StatefulWidget {
@@ -91,9 +74,6 @@ class _ConnectivityBannerHostState extends State<ConnectivityBannerHost> {
     );
   }
 
-  /// Distinguishes "no transport at all" from "transport up but the internet
-  /// is not there", because only the second is fixed by enabling data or
-  /// leaving a dead zone.
   void _showFailureNotice(ConnectionStatus status) {
     final unreachable = status == ConnectionStatus.unreachable;
     _showSnackBar(

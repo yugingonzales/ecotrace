@@ -12,9 +12,6 @@ class LocalEvent {
 
   final String id;
 
-  /// The calendar day the activity runs on. A real date rather than a
-  /// day-of-month, so an event can never be stranded in the wrong month
-  /// or year — the failure mode of a bare `int day`.
   final DateTime date;
 
   final String time;

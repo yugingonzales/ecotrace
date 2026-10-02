@@ -1,13 +1,7 @@
 import '../models/local_event.dart';
 
 /// Offline schedule used until a real events endpoint exists.
-///
-/// The four activities match the identities the app has always shipped, but
-/// they are positioned relative to [now] instead of pinned to fixed
-/// day-of-month numbers. A schedule generated this way is always populated and
-/// always forward-looking, so the app never opens on a stale, empty or
-/// already-elapsed agenda regardless of the device date.
-///
+
 /// The list is built once per session from a single "today" so that every
 /// event shares one consistent origin.
 List<LocalEvent> buildFieldEventSeed({DateTime? now}) {

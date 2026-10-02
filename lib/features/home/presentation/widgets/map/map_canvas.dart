@@ -10,11 +10,6 @@ import 'tree_marker.dart';
 /// Map canvas: tiles, zone halos and tree/GPS markers, isolated from the
 /// `MapScreen` chrome.
 ///
-/// The canvas memoizes its built map widget and only rebuilds it when an
-/// input actually changes (`didUpdateWidget`). Opening the filter panel,
-/// tapping the header, or animating the details sheet therefore no longer
-/// recreates the [`TileLayer`]/[`MarkerLayer`] and their ~24 marker widget
-/// trees on every `setState`.
 class MapCanvas extends StatefulWidget {
   const MapCanvas({
     super.key,
@@ -25,6 +20,10 @@ class MapCanvas extends StatefulWidget {
     required this.selectedTreeId,
     required this.onTreeSelected,
     required this.onMapTap,
+    required this.gpsPoint,
+    required this.heading,
+    required this.isTracking,
+    required this.routeSegments,
     this.trees,
   });
 
@@ -32,9 +31,6 @@ class MapCanvas extends StatefulWidget {
 
   final bool isSatellite;
 
-  /// Active zone filter (`null` = all zones). Kept here so the canvas can
-  /// re-filter markers with simple primitive (==) comparisons instead of
-  /// reallocating lists on every chrome rebuild.
   final String? zoneFilter;
 
   /// Active status filter (`null` = all statuses).
@@ -46,9 +42,14 @@ class MapCanvas extends StatefulWidget {
 
   final VoidCallback onMapTap;
 
-  /// Trees to render. Defaults to the static [campusTrees] inventory; the
-  /// parent passes an updated list when a field verification changes a tree's
-  /// status in-session, since the inventory itself is a compile-time const.
+  final LatLng gpsPoint;
+
+  final double heading;
+
+  final bool isTracking;
+
+  final List<List<LatLng>> routeSegments;
+
   final List<MapTree>? trees;
 
   @override
@@ -56,18 +57,11 @@ class MapCanvas extends StatefulWidget {
 }
 
 class _MapCanvasState extends State<MapCanvas> {
-  static const _gpsPoint = LatLng(campusCenterLat, campusCenterLng);
-
   static final _campusBounds = LatLngBounds(
     const LatLng(campusMinLat, campusMinLng),
     const LatLng(campusMaxLat, campusMaxLng),
   );
 
-  /// Campus bounds + ~two campus-widths of padding. The camera centre can
-  /// roam just outside the site before the map stops following, and tiles are
-  /// only ever fetched for this small area — panning into the open map is
-  /// physically impossible, so no wasted tile traffic competes with the
-  /// campus tiles you actually need.
   static final _roamBounds = LatLngBounds(
     const LatLng(campusMinLat - 0.005, campusMinLng - 0.008),
     const LatLng(campusMaxLat + 0.005, campusMaxLng + 0.008),
@@ -75,17 +69,10 @@ class _MapCanvasState extends State<MapCanvas> {
 
   static const _tileUserAgent = 'com.ecotrace.ecotrace';
 
-  /// Memoized map subtree. Rebuilt only when an input prop changes (see
-  /// [didUpdateWidget]); when nothing changed, the identical widget instance
-  /// is returned so `FlutterMap` and its layers skip rebuilding entirely.
   late Widget _map;
 
   /// One long-lived tile provider shared by every [`TileLayer`] build.
   ///
-  /// A single `RetryClient`/connection pool stays alive for the canvas
-  /// lifetime, and the built-in persistent cache is configured to treat
-  /// tiles as fresh for a week so revisits and pans serve from disk instead
-  /// of re-validating OSM/Esri tiles on every app launch.
   late final NetworkTileProvider _tileProvider = NetworkTileProvider(
     cachingProvider: BuiltInMapCachingProvider.getOrCreateInstance(
       overrideFreshAge: const Duration(days: 7),
@@ -102,18 +89,6 @@ class _MapCanvasState extends State<MapCanvas> {
       )
       .toList(growable: false);
 
-  /// Padded bounding frame per zone — port of the admin `framingBounds`.
-  static List<LatLng> _zoneFrame(CampusZone zone) {
-    const pad = 0.0012;
-    const lngPad = 0.0027;
-    return [
-      LatLng(zone.lat - pad, zone.lng - lngPad),
-      LatLng(zone.lat - pad, zone.lng + lngPad),
-      LatLng(zone.lat + pad, zone.lng + lngPad),
-      LatLng(zone.lat + pad, zone.lng - lngPad),
-    ];
-  }
-
   @override
   void initState() {
     super.initState();
@@ -128,6 +103,11 @@ class _MapCanvasState extends State<MapCanvas> {
         widget.zoneFilter != oldWidget.zoneFilter ||
         widget.statusFilter != oldWidget.statusFilter ||
         widget.selectedTreeId != oldWidget.selectedTreeId ||
+        !identical(widget.trees, oldWidget.trees) ||
+        widget.gpsPoint != oldWidget.gpsPoint ||
+        widget.heading != oldWidget.heading ||
+        widget.isTracking != oldWidget.isTracking ||
+        widget.routeSegments != oldWidget.routeSegments ||
         !identical(widget.onTreeSelected, oldWidget.onTreeSelected) ||
         !identical(widget.onMapTap, oldWidget.onMapTap);
     if (changed) _map = _buildMap();
@@ -162,9 +142,6 @@ class _MapCanvasState extends State<MapCanvas> {
           minZoom: 14,
           maxZoom: 19,
           backgroundColor: const Color(0xFFE6EDE1),
-          // `containCenter` keeps the camera centre inside the padded campus
-          // area: zooming out stays unrestricted (no stuck-zoom), while pans
-          // cannot drift the site out of reach.
           cameraConstraint: CameraConstraint.containCenter(bounds: _roamBounds),
           interactionOptions: const InteractionOptions(
             flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
@@ -189,17 +166,6 @@ class _MapCanvasState extends State<MapCanvas> {
             ),
             evictErrorTileStrategy: EvictErrorTileStrategy.notVisible,
           ),
-          PolygonLayer(
-            polygons: [
-              for (final zone in campusZones)
-                Polygon<Object>(
-                  points: _zoneFrame(zone),
-                  color: zone.color.withValues(alpha: 0.06),
-                  borderColor: zone.color.withValues(alpha: 0.55),
-                  borderStrokeWidth: 1.5,
-                ),
-            ],
-          ),
           MarkerLayer(
             markers: [
               for (final tree in visibleTrees)
@@ -214,10 +180,6 @@ class _MapCanvasState extends State<MapCanvas> {
                     left: 40,
                     top: 42,
                   ),
-                  // TreeMarker already wraps itself in a RepaintBoundary (see
-                  // tree_marker.dart), so each marker is its own cached raster
-                  // layer during camera pans. An extra boundary here would only
-                  // add a redundant compositing layer per marker.
                   child: TreeMarker(
                     code: tree.id,
                     color: tree.color,
@@ -227,13 +189,28 @@ class _MapCanvasState extends State<MapCanvas> {
                 ),
               Marker(
                 key: const ValueKey('gps-position'),
-                point: _gpsPoint,
-                width: 20,
-                height: 20,
-                child: const GpsMarker(),
+                point: widget.gpsPoint,
+                width: 52,
+                height: 52,
+                child: GpsMarker(
+                  heading: widget.heading,
+                  animate: widget.isTracking,
+                ),
               ),
             ],
           ),
+          if (widget.routeSegments.isNotEmpty)
+            PolylineLayer(
+              key: const ValueKey('tree-route'),
+              polylines: [
+                for (final segment in widget.routeSegments)
+                  Polyline(
+                    points: segment,
+                    color: const Color(0xFF2563EB),
+                    strokeWidth: 4,
+                  ),
+              ],
+            ),
         ],
       ),
     );

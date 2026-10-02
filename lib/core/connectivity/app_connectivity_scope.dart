@@ -4,9 +4,6 @@ import 'connection_status.dart';
 
 /// Exposes the app-wide connectivity [ValueNotifier] to any screen.
 ///
-/// `InheritedNotifier` rebuilds exactly the widgets that called [statusOf]
-/// when the status changes — connectivity flips never touch large subtrees
-/// like the memoized campus map canvas.
 class AppConnectivityScope
     extends InheritedNotifier<ValueNotifier<ConnectionStatus>> {
   const AppConnectivityScope({

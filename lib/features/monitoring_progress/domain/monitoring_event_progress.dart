@@ -3,7 +3,7 @@ import 'dart:math' as math;
 enum MonitoringEventStatus { active, completed }
 
 /// A monitoring event's tree-verification progress at a point in time.
-///
+
 /// Normalized getters keep display values safe if a future API sends an
 /// invalid target or an over-target verification count.
 class MonitoringEventProgress {

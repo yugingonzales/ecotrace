@@ -48,12 +48,7 @@ class _ProgressHeader extends StatelessWidget {
   Widget build(BuildContext context) => ColoredBox(
     color: EcoTraceColors.forest,
     child: Padding(
-      padding: const EdgeInsets.fromLTRB(
-        12,
-        EcoTraceHeader.topPadding,
-        20,
-        18,
-      ),
+      padding: const EdgeInsets.fromLTRB(12, EcoTraceHeader.topPadding, 20, 18),
       child: Row(
         children: [
           IconButton(
@@ -92,19 +87,27 @@ class _ProgressHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .1),
-              border: Border.all(color: Colors.white.withValues(alpha: .16)),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              '$activeEventCount active',
-              style: const TextStyle(
-                color: EcoTraceColors.leaf,
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .1),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: .16),
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$activeEventCount active',
+                  style: const TextStyle(
+                    color: EcoTraceColors.leaf,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
             ),
           ),

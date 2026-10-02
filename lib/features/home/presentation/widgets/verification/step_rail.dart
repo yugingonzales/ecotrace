@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_theme.dart';
 
 /// Horizontal progress rail for the verification wizard.
-///
+
 /// Shows every stage at once, including the ones not yet reachable, so the
 /// officer can see the shape of the whole task before starting it.
 class StepRail extends StatelessWidget {

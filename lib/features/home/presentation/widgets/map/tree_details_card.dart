@@ -11,12 +11,20 @@ class TreeDetailsCard extends StatelessWidget {
     required this.onClose,
     required this.onStartVerification,
     required this.onReportIncident,
+    required this.onTrace,
+    required this.isTracing,
+    required this.hasRoute,
+    required this.onClearRoute,
   });
 
   final MapTree tree;
   final VoidCallback onClose;
   final VoidCallback onStartVerification;
   final VoidCallback onReportIncident;
+  final VoidCallback onTrace;
+  final bool isTracing;
+  final bool hasRoute;
+  final VoidCallback onClearRoute;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -69,7 +77,10 @@ class TreeDetailsCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: tree.color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
@@ -163,10 +174,7 @@ class TreeDetailsCard extends StatelessWidget {
                 children: [
                   Text(
                     'Start Verification',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                   ),
                   SizedBox(width: 8),
                   Icon(Icons.arrow_forward, size: 20),
@@ -174,6 +182,47 @@ class TreeDetailsCard extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: isTracing ? null : onTrace,
+              icon: const Icon(Icons.route_outlined, size: 18),
+              label: isTracing
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Start navigation'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF2563EB),
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                side: const BorderSide(color: Color(0xFFBFDBFE)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+          if (hasRoute) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: onClearRoute,
+                icon: const Icon(Icons.clear_rounded, size: 18),
+                label: const Text('Clear route'),
+                style: TextButton.styleFrom(
+                  foregroundColor: EcoTraceColors.error,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,

@@ -139,9 +139,6 @@ class _SplashScreenState extends State<SplashScreen>
               'lib/assets/icons/ecotrace_icon.png',
               width: 160,
               height: 160,
-              // Source is a 1024×1024 PNG; decode at 2× the display size so
-              // HiDPI screens stay sharp without holding a 4 MB RGBA buffer
-              // (full-res decode) just to draw a 160 px icon.
               cacheWidth: 320,
               cacheHeight: 320,
               filterQuality: FilterQuality.medium,
@@ -197,11 +194,6 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  // Snappy fade route shared with the auth screen transition. Scale and slide
-  // were removed: animating a transform re-rasterizes the heavy glass-blur
-  // surface at a new size every frame, which is what made entry feel laggy.
-  // Opacity is composited at the already-rasterized size, so a short fade is
-  // effectively free.
   static PageRouteBuilder<void> _smoothRoute(Widget page) {
     return PageRouteBuilder(
       transitionDuration: const Duration(milliseconds: 250),

@@ -5,9 +5,6 @@ import '../../../../field_verification/domain/verification_draft.dart';
 
 /// First stage of verification: choose how the plant is analysed.
 ///
-/// The automatic option is present but inert. It is shown disabled rather than
-/// hidden so the capability is visible in the product, and it is *not* wired
-/// to a placeholder that invents measurements.
 class AnalysisModeScreen extends StatelessWidget {
   const AnalysisModeScreen({
     super.key,

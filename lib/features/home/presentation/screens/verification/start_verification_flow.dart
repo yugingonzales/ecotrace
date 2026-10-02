@@ -10,9 +10,6 @@ import 'verification_wizard_screen.dart';
 
 /// Entry point for "Start Verification".
 ///
-/// Offers the analysis-mode choice first, then enforces that the officer is
-/// standing at the plant before the wizard opens. Returns the completed
-/// [TreeRecord] to the caller, or null if the officer backed out.
 class StartVerificationFlow extends StatefulWidget {
   const StartVerificationFlow({
     super.key,
@@ -86,9 +83,6 @@ class _StartVerificationFlowState extends State<StartVerificationFlow> {
         onManualChosen: _onManualChosen,
       );
     }
-    // TEMPORARY: with the gate disabled the wizard opens directly, so the
-    // interface can be tested without a location fix. The gate itself is
-    // untouched and returns as soon as enforcementEnabled is true again.
     if (!VerificationProximity.enforcementEnabled) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_openingWizard) {
@@ -220,9 +214,6 @@ class _WithinRangeNotice extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              // "Continue", not "Start verification": the officer already
-              // started it by choosing manual analysis, and a button that
-              // repeats the previous one reads as though nothing happened.
               child: const Text(
                 'Continue',
                 style: TextStyle(fontWeight: FontWeight.w800),
