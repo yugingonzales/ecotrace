@@ -66,11 +66,11 @@ dark-green contrast, lemon action accents, readable form spacing.
 
 ## 2. Current status
 
-**Gates at merge time: `flutter analyze` clean · `flutter test` 70/70 green.**
+**Gates at merge time: `flutter analyze` clean · `flutter test` 71/71 green.**
 
 | Area | State |
 |---|---|
-| Entry point | `EcoTraceApp` launches **directly** into `AppShell` — splash/login bypassed |
+| Entry point | `EcoTraceApp` launches into `SplashScreen`, which transitions to the staff login screen and then to `AppShell` on submit |
 | Shell | Bottom nav with 5 slots; centre action is **"View field progress"**, not the scanner |
 | Events | Date-aware calendar (rolling strip + real month grid), collapsing strip, search, joined-only filter, participation receipt |
 | Map | Real `flutter_map` campus map, 23 admin trees, OSM/Esri toggle, zone+status filters, left-rail controls, OSRM road routing |
@@ -82,11 +82,11 @@ dark-green contrast, lemon action accents, readable form spacing.
 | Field progress | Theme-native dashboard over a static preview dataset |
 | Sync dashboard | Static literals only |
 
-### Test suite — 70 tests
+### Test suite — 71 tests
 
 | File | Tests |
 |---|---|
-| `test/widget_test.dart` | 27 |
+| `test/widget_test.dart` | 28 |
 | `test/features/field_verification/verification_test.dart` | 22 |
 | `test/features/field_verification/verification_wizard_test.dart` | 9 |
 | `test/features/field_verification/start_verification_flow_test.dart` | 6 |
@@ -172,8 +172,9 @@ responsive scrollable form, a constrained desktop width, lighter field/card
 styling and keyboard-safe bottom padding. A compact 320 px overflow was fixed by
 scaling the brand row to its available width.
 
-> **The screen is currently not in the launch path.** `EcoTraceApp` goes straight
-> to `AppShell`.
+> **The screen is in the launch path.** `EcoTraceApp` starts at `SplashScreen`;
+> the splash plays its staged animation (see `kSplashSequenceDuration`) and
+> transitions to this screen, which replaces itself with `AppShell` on submit.
 
 ### 4.2 Events
 
@@ -641,7 +642,7 @@ All questions previously raised are closed. Recorded so they are not re-litigate
 | 9 | Gate button copy | **"Continue"**, not a repeat of "Start verification" |
 | 10 | Map control placement | All actions on the **left rail** |
 | 11 | Header top margin | **2 dp**, centralized in `EcoTraceHeader.topPadding` (was 16, then 8, then 2 — it had been written out four times and drifted) |
-| 12 | Launch flow | **Skip splash and login** — `EcoTraceApp` goes directly to `AppShell` |
+| 12 | Launch flow | **Restore splash → login → shell** — `EcoTraceApp` starts at `SplashScreen`, which transitions to `StaffAuthScreen` and then to `AppShell` on submit. `kSplashSequenceDuration` is exposed so the launch test can outrun the animation instead of duplicating the timings |
 | 13 | Bottom-nav centre | **"View field progress"** — confirm with the product owner, don't revert |
 
 ---
@@ -652,7 +653,7 @@ All questions previously raised are closed. Recorded so they are not re-litigate
 cd C:\flutter_workspace\ecotrace
 flutter pub get
 flutter analyze      # must be clean
-flutter test         # must be green — 70/70 at merge time
+flutter test         # must be green — 71/71 at merge time
 flutter build apk --debug
 ```
 
@@ -689,6 +690,7 @@ number recorded in any log.
 | 2026-10-02 | Global controls, profile, alerts and map | Removed disabled search/filter actions from Alerts and Profile headers; made Alert tabs filter the rendered alert list; added a state-backed `UserProfile` with editable Email, Home Address and Contact Number; replaced Incident Report no-op callbacks with validated selections, description state, camera evidence selection/removal and saving feedback; removed the map QR control; added Geolocator service/permission prompts, live position stream, heading-aware marker, nearby-tree count filtering/clear action and selectable-tree Direction or Trace action with keyed dotted local corridor rendering. Added focused widget tests for alerts, profile, QR removal/tracking replacement and route rendering | analyze ✅ · 70/70 ✅ |
 | 2026-10-02 | Auth interface rebuild | Rebuilt `staff_auth_screen.dart` presentation from scratch while retaining controllers, validators, password visibility state, staff-type selector, login/sign-up toggle, submit flow and the `AppShell` replacement route. Replaced the heavy animated/glass canopy with a static repaint-bounded backdrop, responsive scrollable form, constrained desktop width, lighter field/card styling and keyboard-safe bottom padding. Fixed a compact 320 px overflow by scaling the brand row to its available width. No Flutter app was connected for hot reload; DTD discovery completed with no connected apps | analyze ✅ · 67/67 ✅ |
 | 2026-10-03 | **Documentation consolidation** | Merged 10 documents into this file. Re-verified every load-bearing claim against the working tree instead of copying it forward: 70 tests (27+6+22+9+6) confirmed by per-file count, 69 Dart files in `lib/`, the 5 manifest permissions, `pubspec.yaml` dependencies, `enforcementEnabled == false` at `verification_proximity.dart:110`, `home: const AppShell()` in `main.dart`, and the three-state `ConnectionStatus`. Deleted the 10 merged sources; kept `README.md` and binding `ai_instructions.md`. Content that had gone stale was corrected rather than carried forward — see §12 | analyze ✅ · 70/70 ✅ |
+| 2026-10-03 | Launch flow: login restored | `home:` in `main.dart` was still `AppShell`, a launch bypass that had been requested for the 2026-10-02 overhaul and committed there. The auth feature itself had never been deleted — `staff_auth_screen.dart` (688 lines) and the splash→login and login→shell routes were all intact, so the single line was the whole defect. Pointed `home:` back at `SplashScreen` and replaced the test that had locked the bypass in (`launches directly into the main application shell`) with two that assert the real chain: splash→login, and login→shell. Added `kSplashSequenceDuration` to the splash so the test outruns the staged 150+200+650+300+950 ms choreography from one named constant instead of a hardcoded guess, with an `assert` tying it to those delays. The stale `not in the launch path` / `splash/login bypassed` claims in §3 and §4.1 were corrected; the 2026-10-02 log row was left as the historical record | analyze ✅ · 71/71 ✅ |
 
 ---
 
@@ -728,6 +730,14 @@ Merged on 2026-10-03 from these ten files, all deleted in the same change
 - **Icon size.** Stated as 913/914 KB; measured at **892 KB** today.
 - **Dart file count.** Stated as 56 then 67; measured at **69** today.
 - **`passwordHash`.** Kept as SEC-1 with its hold reason, not silently dropped.
+- **The launch bypass, treated as settled.** The merge recorded `home: const
+  AppShell()` as an intentional 2026-10-02 decision and stated in §4.1 that the
+  login screen "is not in the launch path" — accurate, but it was a stale
+  *fact* about a change whose intent was never re-confirmed. Verified as
+  settled without asking. Corrected the same day: `home:` points back at
+  `SplashScreen`, and §4.1 now describes the real chain. The lesson generalises —
+  a documented state is not the same as an approved one, and a consolidated
+  single source of truth launders an old decision into looking current.
 
 ---
 

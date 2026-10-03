@@ -7,6 +7,7 @@ import 'core/connectivity/connectivity_banner_host.dart';
 import 'core/connectivity/connectivity_controller.dart';
 import 'core/theme/app_theme.dart';
 import 'features/home/presentation/app_shell.dart';
+import 'features/splash/presentation/splash_screen.dart';
 
 /// Builds and runs [EcoTraceApp], the campus tree-tracking PWA.
 
@@ -53,7 +54,7 @@ class _EcoTraceAppState extends State<EcoTraceApp> {
       theme: EcoTraceTheme.light,
       navigatorKey: _navigatorKey,
       scaffoldMessengerKey: _messengerKey,
-      home: const AppShell(),
+      home: const SplashScreen(),
       builder: (context, child) => AppConnectivityScope(
         notifier: _connectivity,
         child: ConnectivityBannerHost(

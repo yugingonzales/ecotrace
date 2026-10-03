@@ -31,6 +31,13 @@ class _MapScreenState extends State<MapScreen> {
 
   final MapController _mapController = MapController();
 
+  /// Measures the selected-tree sheet so the recenter button can sit just above
+  /// it instead of relying on a hard-coded offset that drifts whenever the
+  /// card's content (status pill, chips, "Clear route") changes height.
+  final GlobalKey _detailsCardKey = GlobalKey();
+
+  double _detailsCardHeight = 0;
+
   bool _satellite = false;
   bool _filtersOpen = false;
   bool _tracking = false;
@@ -79,6 +86,18 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _closeDetails() => setState(() => _selectedTree = null);
+
+  /// Re-reads the details sheet height after layout so the recenter button
+  /// tracks the card exactly (chips wrap, "Clear route" appears/disappears).
+  void _syncDetailsCardHeight() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final height = _detailsCardKey.currentContext?.size?.height;
+      if (height == null) return;
+      if ((height - _detailsCardHeight).abs() < 0.5) return;
+      setState(() => _detailsCardHeight = height);
+    });
+  }
 
   /// Map taps nudge the selected tree only when one is actually open — taps
   /// on empty map no longer trigger a full chrome + map rebuild.
@@ -353,13 +372,17 @@ class _MapScreenState extends State<MapScreen> {
     final connection = AppConnectivityScope.statusOf(context);
     final inset = MediaQuery.paddingOf(context).top;
 
+    // Keeps the recenter button glued to the top of the details sheet.
+    if (_selectedTree != null) _syncDetailsCardHeight();
+
     // Header sits at the same y as Events / Alerts / Profile / the dashboard:
     // the status-bar inset, then the one shared gap.
     final headerTop = inset + EcoTraceHeader.topPadding;
 
+    // Map action buttons are _kMapActionSize circles stacked down the right edge.
     final scannerTop = headerTop + MapHeader.height + 18;
-    final filterTop = scannerTop + 42 + 10;
-    final panelTop = filterTop + 42 + 8;
+    final filterTop = scannerTop + _kMapActionSize + 10;
+    final panelTop = filterTop + _kMapActionSize + 8;
 
     return Stack(
       children: [
@@ -408,12 +431,11 @@ class _MapScreenState extends State<MapScreen> {
         ),
         Positioned(
           top: scannerTop,
-          left: 12,
+          right: 12,
           child: Tooltip(
             message: _tracking ? 'Stop live tracking' : 'Track my location',
             child: _MapActionButton(
               icon: _tracking ? Icons.my_location : Icons.gps_fixed_rounded,
-              label: _tracking ? 'Stop tracking' : 'Track my location',
               onTap: _toggleTracking,
               color: Colors.white,
               iconColor: _tracking
@@ -424,12 +446,11 @@ class _MapScreenState extends State<MapScreen> {
         ),
         Positioned(
           top: filterTop,
-          left: 12,
+          right: 12,
           child: Tooltip(
             message: 'Find nearby trees',
             child: _MapActionButton(
               icon: Icons.park_outlined,
-              label: 'Find nearby trees',
               onTap: _findNearbyTrees,
               color: _nearbyTreeIds == null
                   ? EcoTraceColors.forest
@@ -439,22 +460,27 @@ class _MapScreenState extends State<MapScreen> {
         ),
         if (_nearbyTreeIds != null)
           Positioned(
-            top: panelTop + 50,
-            left: 12,
+            top: panelTop + _kMapActionSize + 8,
+            right: 12,
             child: Tooltip(
               message: 'Clear nearby tree results',
               child: _MapActionButton(
                 icon: Icons.close_rounded,
-                label: 'Clear nearby',
                 onTap: _clearNearbyTrees,
                 color: EcoTraceColors.error,
               ),
             ),
           ),
-        if (_filtersOpen)
+        if (_filtersOpen) ...[
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => setState(() => _filtersOpen = false),
+            ),
+          ),
           Positioned(
             top: panelTop,
-            left: 12,
+            right: 12 + _kMapActionSize + 8,
             child: MapFilterPanel(
               zoneFilter: _zoneFilter,
               statusFilter: _statusFilter,
@@ -462,14 +488,14 @@ class _MapScreenState extends State<MapScreen> {
               onStatusSelected: _setStatusFilter,
             ),
           ),
+        ],
         Positioned(
           top: panelTop,
-          left: 12,
+          right: 12,
           child: Tooltip(
             message: 'Filters',
             child: _MapActionButton(
               icon: Icons.tune_rounded,
-              label: 'Filters',
               onTap: () => setState(() => _filtersOpen = !_filtersOpen),
               color: _filtersOpen || _activeFilterCount > 0
                   ? EcoTraceColors.forest
@@ -481,13 +507,15 @@ class _MapScreenState extends State<MapScreen> {
           ),
         ),
         Positioned(
-          left: 12,
-          bottom: _selectedTree == null ? 92 : 330,
+          right: 12,
+          // 12px card inset + measured card height + 12px breathing room.
+          bottom: _selectedTree == null
+              ? 92
+              : 12 + _detailsCardHeight + 12,
           child: Tooltip(
             message: 'Recenter on my location',
             child: _MapActionButton(
               icon: Icons.navigation_rounded,
-              label: 'Recenter map',
               onTap: _recenter,
               color: Colors.white,
               iconColor: EcoTraceColors.forest,
@@ -503,6 +531,7 @@ class _MapScreenState extends State<MapScreen> {
           // The sheet slides over the map without invalidating the map's own
           // paint layer.
           child: RepaintBoundary(
+            key: _detailsCardKey,
             child: _selectedTree == null
                 ? const SizedBox.shrink()
                 : TreeDetailsCard(
@@ -524,17 +553,18 @@ class _MapScreenState extends State<MapScreen> {
   }
 }
 
+// Diameter of the circular, icon-only map action buttons.
+const double _kMapActionSize = 44;
+
 class _MapActionButton extends StatelessWidget {
   const _MapActionButton({
     required this.icon,
-    required this.label,
     required this.onTap,
     required this.color,
     this.iconColor = Colors.white,
   });
 
   final IconData icon;
-  final String label;
   final VoidCallback onTap;
   final Color color;
   final Color iconColor;
@@ -546,35 +576,16 @@ class _MapActionButton extends StatelessWidget {
       onTap: onTap,
       customBorder: const CircleBorder(),
       child: Container(
-        width: 188,
-        height: 44,
+        width: _kMapActionSize,
+        height: _kMapActionSize,
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(14),
+          shape: BoxShape.circle,
           boxShadow: const [
             BoxShadow(color: Color(0x26000000), blurRadius: 10),
           ],
         ),
-        child: Row(
-          children: [
-            const SizedBox(width: 13),
-            Icon(icon, color: iconColor, size: 20),
-            const SizedBox(width: 9),
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: iconColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-          ],
-        ),
+        child: Center(child: Icon(icon, color: iconColor, size: 21)),
       ),
     ),
   );

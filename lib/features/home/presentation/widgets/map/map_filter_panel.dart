@@ -103,16 +103,19 @@ class MapFilterPanel extends StatelessWidget {
       campusTrees.where((tree) => tree.status == status).length;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: 244,
-    padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-    decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: .97),
-      borderRadius: BorderRadius.circular(18),
-      boxShadow: const [
-        BoxShadow(color: Color(0x26000000), blurRadius: 14),
-      ],
-    ),
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: () {},
+    behavior: HitTestBehavior.opaque,
+    child: Container(
+      width: 244,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .97),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(color: Color(0x26000000), blurRadius: 14),
+        ],
+      ),
     child: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -188,7 +191,8 @@ class MapFilterPanel extends StatelessWidget {
           ),
       ],
     ),
-  );
+  ),
+);
 }
 
 class _ZonePill extends StatelessWidget {

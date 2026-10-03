@@ -10,6 +10,15 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
+/// Total wall-clock time of the staged splash animation sequence, measured
+/// from `initState` to the transition into [StaffAuthScreen].
+///
+/// The sequence is a chain of sequential delays (150 + 200 + 650 + 300 + 950),
+/// so it cannot be expressed as a controller duration. Exposed so tests can
+/// outrun it in a single bounded `pump` instead of guessing at a number, and
+/// so the launch test fails loudly if the choreography ever changes.
+const kSplashSequenceDuration = Duration(milliseconds: 2250);
+
 class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
   late final AnimationController _sceneCtrl;
@@ -82,6 +91,10 @@ class _SplashScreenState extends State<SplashScreen>
       // Hold then transition
       await Future.delayed(const Duration(milliseconds: 950));
       if (!mounted) return;
+      assert(
+        kSplashSequenceDuration.inMilliseconds == 150 + 200 + 650 + 300 + 950,
+        'kSplashSequenceDuration drifted from the staged delays below.',
+      );
       Navigator.of(context)
           .pushReplacement(_smoothRoute(const StaffAuthScreen()));
     } catch (_) {

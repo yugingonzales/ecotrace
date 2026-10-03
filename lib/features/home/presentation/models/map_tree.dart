@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+/// Stand-in documentation photo used for every tree until the admin portal
+/// ships real per-tree imagery. Already bundled via `pubspec.yaml` assets.
+const String kPlaceholderTreePhoto = 'lib/assets/icons/ecotrace_icon.png';
+
 /// Status vocabulary shared with the EcoTrace admin portal tree inventory
 /// (`trees.ts` `StatusKey`).
 enum TreeStatus { verified, pending, incident, unverified }
@@ -36,6 +40,7 @@ class MapTree {
     required this.species,
     required this.datePlanted,
     required this.zone,
+    this.photos = const [],
   });
 
   /// Admin tree tag, e.g. `TRE-0892`.
@@ -56,11 +61,20 @@ class MapTree {
   /// `Zone I` | `Zone II` | `Zone III`.
   final String zone;
 
+  /// Documentation photos for this planted tree.
+  final List<String> photos;
+
   Color get color => status.color;
   String get statusLabel => status.label;
 
   /// Compact coordinate pair shown in the details card, e.g. `12.5101, 124.6679`.
   String get coordinates => '${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}';
+
+  /// Photos guaranteed non-empty for the UI, so widgets never guard on `isEmpty`.
+  /// Every tree currently shares the EcoTrace placeholder badge until the admin
+  /// portal starts shipping real per-tree documentation photos.
+  List<String> get photosList =>
+      photos.isNotEmpty ? photos : const [kPlaceholderTreePhoto];
 
   /// Returns a copy with the given fields replaced. Used to reflect a field
   /// verification in the map without mutating the shared const inventory.
@@ -72,6 +86,7 @@ class MapTree {
     String? zone,
     String? planter,
     String? datePlanted,
+    List<String>? photos,
   }) => MapTree(
     id: id,
     lat: lat ?? this.lat,
@@ -81,5 +96,6 @@ class MapTree {
     species: species ?? this.species,
     datePlanted: datePlanted ?? this.datePlanted,
     zone: zone ?? this.zone,
+    photos: photos ?? this.photos,
   );
 }

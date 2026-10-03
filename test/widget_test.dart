@@ -29,7 +29,10 @@ import 'package:ecotrace/features/home/presentation/screens/events/events_screen
 import 'package:ecotrace/features/home/presentation/screens/map/map_screen.dart';
 import 'package:ecotrace/features/home/presentation/screens/profile/profile_screen.dart';
 import 'package:ecotrace/features/auth/presentation/staff_auth_screen.dart';
+import 'package:ecotrace/features/splash/presentation/splash_screen.dart';
 import 'package:ecotrace/features/home/presentation/widgets/map/map_header.dart';
+import 'package:ecotrace/features/home/presentation/widgets/map/tree_details_card.dart';
+import 'package:ecotrace/features/home/presentation/widgets/map/tree_marker.dart';
 import 'package:ecotrace/features/home/presentation/widgets/shared/top_bar.dart';
 import 'package:ecotrace/features/monitoring_progress/presentation/monitoring_progress_screen.dart';
 
@@ -135,13 +138,39 @@ void main() {
     );
   });
 
-  testWidgets('launches directly into the main application shell', (
+  testWidgets('launches through the splash into the staff login screen', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const EcoTraceApp());
 
-    expect(find.text("Today's schedule"), findsOneWidget);
-    expect(find.byIcon(Icons.map_outlined), findsOneWidget);
+    // The splash plays a fixed animation sequence before it transitions. Until
+    // that sequence finishes, nothing after it has been mounted yet.
+    expect(find.byType(SplashScreen), findsOneWidget);
+
+    // Outrun the sequence: 150 + 200 + 650 + 300 + 950ms of staged delays.
+    await tester.pump(kSplashSequenceDuration);
+    await tester.pumpAndSettle();
+
+    // The splash hands off to login, not straight to the shell.
+    expect(find.byType(SplashScreen), findsNothing);
+    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('Login'), findsOneWidget);
+  });
+
+  testWidgets('reaches the main application shell after a successful login', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: StaffAuthScreen()));
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'r.delacruz');
+    await tester.enterText(find.byType(TextFormField).at(1), 'correct-horse');
+    await tester.tap(find.text('Login'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(StaffAuthScreen), findsNothing);
+    expect(find.text('Today\'s schedule'), findsOneWidget);
   });
 
   testWidgets('navigates between the reference frontend surfaces', (
@@ -559,6 +588,86 @@ void main() {
 
     expect(find.byKey(const ValueKey('tree-route')), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('keeps the selected-tree sheet compact and fully visible', (
+    WidgetTester tester,
+  ) async {
+    // The details sheet used to lay every field out as its own full-size box,
+    // which pushed the CTA below the fold on small phones. It now stacks a
+    // chip row plus one CTA, so it must fit inside its 45%-of-viewport cap with
+    // every action reachable without scrolling.
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MaterialApp(home: AppShell()));
+    await tester.tap(find.byIcon(Icons.map_outlined));
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.tap(find.text('TRE-1508'));
+    await tester.pumpAndSettle();
+
+    final sheet = find.byType(TreeDetailsCard);
+    expect(sheet, findsOneWidget);
+    expect(
+      tester.getSize(sheet).height,
+      lessThanOrEqualTo(568 * 0.45),
+      reason: 'the sheet must respect its own maxHeight cap',
+    );
+
+    // Nothing may be clipped: the primary CTA and both secondary actions are
+    // all laid out at once, and no overflow was recorded.
+    expect(find.text('Start Verification'), findsOneWidget);
+    expect(find.text('Start navigation'), findsOneWidget);
+    expect(find.text('Report incident'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    // Every data point from the previous layout is still rendered.
+    for (final chip in ['SPECIES', 'ZONE', 'PLANTED', 'PLANTER', 'COORDS']) {
+      expect(find.textContaining(chip), findsWidgets, reason: 'missing $chip');
+    }
+  });
+
+  testWidgets('highlights the selected marker and moves the highlight', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: AppShell()));
+    await tester.tap(find.byIcon(Icons.map_outlined));
+    await tester.pump(const Duration(milliseconds: 250));
+
+    Set<String> highlightedCodes() => tester
+        .widgetList<TreeMarker>(find.byType(TreeMarker))
+        .where((marker) => marker.selected)
+        .map((marker) => marker.code)
+        .toSet();
+
+    // Invoke the marker's own tap handler rather than the label's hit point:
+    // at the default test size two markers can overlap, and a raw tap would
+    // then hit whichever `GestureDetector` is painted on top.
+    void selectMarker(String code) {
+      final marker = find.byWidgetPredicate(
+        (widget) => widget is TreeMarker && widget.code == code,
+      );
+      tester.widget<TreeMarker>(marker).onTap!();
+    }
+
+    expect(highlightedCodes(), isEmpty);
+
+    selectMarker('TRE-1508');
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(highlightedCodes(), {'TRE-1508'});
+
+    // Selecting a different marker moves the highlight instead of stacking one.
+    selectMarker('TRE-0892');
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(highlightedCodes(), {'TRE-0892'});
+
+    // Closing the sheet clears the marker highlight.
+    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(highlightedCodes(), isEmpty);
+    expect(find.byType(TreeDetailsCard), findsNothing);
   });
 
   testWidgets('offers the analysis mode before locating the officer', (

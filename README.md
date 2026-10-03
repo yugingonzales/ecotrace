@@ -19,7 +19,7 @@ feedback.
 | Platform | Android only |
 | Stack | Flutter · Material 3 · `flutter_map` · `geolocator` · `http` · `image_picker` |
 | Source | 69 Dart files in `lib/` |
-| Tests | 70, all passing |
+| Tests | 71, all passing |
 | State | High-fidelity frontend. **No backend, no persistence.** |
 
 ## Current gates
@@ -28,7 +28,7 @@ feedback.
 cd C:\flutter_workspace\ecotrace
 flutter pub get
 flutter analyze      # clean
-flutter test         # 70/70
+flutter test         # 71/71
 ```
 
 ## What works today
