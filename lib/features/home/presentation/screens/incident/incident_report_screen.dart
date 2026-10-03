@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../../core/loading/loading_views.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../widgets/shared/section_title.dart';
 import '../../widgets/shared/status_badge.dart';
@@ -23,6 +24,7 @@ class _IncidentReportScreenState extends State<IncidentReportScreen> {
   String _severity = 'Medium';
   XFile? _evidence;
   bool _saving = false;
+  bool _picking = false;
 
   @override
   void dispose() {
@@ -31,19 +33,33 @@ class _IncidentReportScreenState extends State<IncidentReportScreen> {
   }
 
   Future<void> _pickEvidence() async {
-    final image = await _picker.pickImage(
-      source: ImageSource.camera,
-      imageQuality: 82,
-      maxWidth: 1600,
-    );
-    if (!mounted || image == null) return;
-    setState(() => _evidence = image);
+    if (_picking) return;
+    setState(() => _picking = true);
+    try {
+      final image = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 82,
+        maxWidth: 1600,
+      );
+      if (!mounted || image == null) return;
+      setState(() => _evidence = image);
+    } on Object catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not open the camera. $error'),
+          backgroundColor: EcoTraceColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _picking = false);
+    }
   }
 
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _saving = true);
-    await Future<void>.value();
+    await Future<void>.delayed(const Duration(milliseconds: 700));
     if (!mounted) return;
     setState(() => _saving = false);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -137,12 +153,16 @@ class _IncidentReportScreenState extends State<IncidentReportScreen> {
             ),
             const SizedBox(height: 14),
             OutlinedButton.icon(
-              onPressed: _pickEvidence,
-              icon: const Icon(Icons.photo_camera_outlined),
+              onPressed: _picking ? null : _pickEvidence,
+              icon: _picking
+                  ? const EcoButtonLoader(color: EcoTraceColors.forest)
+                  : const Icon(Icons.photo_camera_outlined),
               label: Text(
-                _evidence == null
-                    ? 'Add photo evidence'
-                    : 'Replace photo evidence',
+                _picking
+                    ? 'Opening camera…'
+                    : (_evidence == null
+                          ? 'Add photo evidence'
+                          : 'Replace photo evidence'),
               ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: EcoTraceColors.forest,
@@ -172,13 +192,7 @@ class _IncidentReportScreenState extends State<IncidentReportScreen> {
                 minimumSize: const Size.fromHeight(52),
               ),
               child: _saving
-                  ? const SizedBox.square(
-                      dimension: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
+                  ? const EcoButtonLoader()
                   : const Text('Save incident draft'),
             ),
           ],

@@ -26,12 +26,16 @@ class TreeDetailsCard extends StatelessWidget {
   final bool hasRoute;
   final VoidCallback onClearRoute;
 
+  /// Share of the viewport this sheet may occupy.
+  ///
+  /// Raised from 0.45 to leave room for the 140px photo cover without forcing
+  /// a scroll on a typical phone. Still well short of full screen.
+  static const double maxHeightFraction = 0.52;
+
   @override
   Widget build(BuildContext context) => Container(
     constraints: BoxConstraints(
-      // Raised from 0.45 to leave room for the 140px photo cover without
-      // forcing a scroll on a typical phone. Still well short of full screen.
-      maxHeight: MediaQuery.sizeOf(context).height * 0.52,
+      maxHeight: MediaQuery.sizeOf(context).height * maxHeightFraction,
     ),
     decoration: BoxDecoration(
       color: Colors.white,
@@ -280,10 +284,7 @@ class TreeDetailsCard extends StatelessWidget {
                 icon: const Icon(Icons.clear_rounded, size: 14),
                 label: const Text(
                   'Clear route',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                 ),
                 style: TextButton.styleFrom(
                   foregroundColor: EcoTraceColors.error,

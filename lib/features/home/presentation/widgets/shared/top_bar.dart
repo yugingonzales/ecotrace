@@ -58,19 +58,19 @@ class TopBar extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (onCalendar != null) ...[
-              _buildActionButton(
-                icon: Icons.calendar_month_rounded,
-                tooltip: 'Calendar',
-                onPressed: onCalendar,
-              ),
-              const SizedBox(width: 2),
-            ],
             if (showSearch) ...[
               _buildActionButton(
                 icon: Icons.search_rounded,
                 tooltip: 'Search',
                 onPressed: onSearch,
+              ),
+              const SizedBox(width: 2),
+            ],
+            if (onCalendar != null) ...[
+              _buildActionButton(
+                icon: Icons.calendar_month_rounded,
+                tooltip: 'Calendar',
+                onPressed: onCalendar,
               ),
               const SizedBox(width: 2),
             ],

@@ -7,11 +7,7 @@ import '../../../../../core/theme/app_theme.dart';
 /// Shows every stage at once, including the ones not yet reachable, so the
 /// officer can see the shape of the whole task before starting it.
 class StepRail extends StatelessWidget {
-  const StepRail({
-    super.key,
-    required this.labels,
-    required this.currentIndex,
-  });
+  const StepRail({super.key, required this.labels, required this.currentIndex});
 
   final List<String> labels;
   final int currentIndex;

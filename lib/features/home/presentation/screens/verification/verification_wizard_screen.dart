@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/loading/loading_views.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../field_verification/domain/measurement_limits.dart';
 import '../../../../field_verification/domain/tree_record.dart';
@@ -25,7 +26,8 @@ class VerificationWizardScreen extends StatefulWidget {
   final double? distanceFromTreeMeters;
 
   @override
-  State<VerificationWizardScreen> createState() => _VerificationWizardScreenState();
+  State<VerificationWizardScreen> createState() =>
+      _VerificationWizardScreenState();
 }
 
 class _VerificationWizardScreenState extends State<VerificationWizardScreen> {
@@ -36,6 +38,8 @@ class _VerificationWizardScreenState extends State<VerificationWizardScreen> {
 
   VerificationStep _step = VerificationStep.status;
   VerificationDraft _draft = const VerificationDraft();
+  bool _submitting = false;
+  double _uploadProgress = 0;
 
   @override
   void dispose() {
@@ -79,7 +83,9 @@ class _VerificationWizardScreenState extends State<VerificationWizardScreen> {
     _goTo(VerificationStep.measurements);
   }
 
-  void _submit() {
+  /// Uploads the record and its photo evidence, reporting progress as it goes.
+  Future<void> _submit() async {
+    if (_submitting) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (!_draft.hasStatus) {
       setState(() => _step = VerificationStep.status);
@@ -95,6 +101,25 @@ class _VerificationWizardScreenState extends State<VerificationWizardScreen> {
       );
       return;
     }
+
+    setState(() {
+      _submitting = true;
+      _uploadProgress = 0;
+    });
+    try {
+      await _upload();
+    } on Object {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not send the verification. Try again.'),
+          backgroundColor: EcoTraceColors.error,
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
     Navigator.pop(
       context,
       _draft.toRecord(
@@ -106,6 +131,19 @@ class _VerificationWizardScreenState extends State<VerificationWizardScreen> {
         distanceFromTreeMeters: widget.distanceFromTreeMeters,
       ),
     );
+  }
+
+  /// Stands in for the multipart upload of [TreeRecord] plus each photo.
+  ///
+  /// The real implementation drives [_uploadProgress] from the socket's
+  /// `onProgress` callback; stepping it here keeps the wizard's progress UI
+  /// honest about what the final code will look like.
+  Future<void> _upload() async {
+    final files = _draft.needsEvidence ? _draft.photoPaths.length + 1 : 1;
+    for (var sent = 1; sent <= files; sent++) {
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+      if (mounted) setState(() => _uploadProgress = sent / files);
+    }
   }
 
   @override
@@ -128,15 +166,20 @@ class _VerificationWizardScreenState extends State<VerificationWizardScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
                 child: StepRail(
-                  labels: [
-                    'Status',
-                    'Measure',
-                    'Evidence',
-                    'Review',
-                  ],
+                  labels: ['Status', 'Measure', 'Evidence', 'Review'],
                   currentIndex: _step.index,
                 ),
               ),
+              if (_submitting)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                  child: EcoProgressBar(
+                    progress: _uploadProgress,
+                    label: _draft.needsEvidence
+                        ? 'Uploading photos'
+                        : 'Sending verification',
+                  ),
+                ),
               Expanded(
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 180),
@@ -157,8 +200,9 @@ class _VerificationWizardScreenState extends State<VerificationWizardScreen> {
                       key: const ValueKey('step-evidence'),
                       photoPaths: _draft.photoPaths,
                       isMissing: isMissing,
-                      onChanged: (paths) =>
-                          setState(() => _draft = _draft.copyWith(photoPaths: paths)),
+                      onChanged: (paths) => setState(
+                        () => _draft = _draft.copyWith(photoPaths: paths),
+                      ),
                     ),
                     VerificationStep.review => _ReviewStep(
                       key: const ValueKey('step-review'),
@@ -170,6 +214,7 @@ class _VerificationWizardScreenState extends State<VerificationWizardScreen> {
               ),
               _WizardFooter(
                 step: _step,
+                submitting: _submitting,
                 onBack: _step == VerificationStep.status
                     ? null
                     : () => _goTo(VerificationStep.values[_step.index - 1]),
@@ -190,11 +235,16 @@ class _VerificationWizardScreenState extends State<VerificationWizardScreen> {
 class _WizardFooter extends StatelessWidget {
   const _WizardFooter({
     required this.step,
+    required this.submitting,
     required this.onBack,
     required this.onNext,
   });
 
   final VerificationStep step;
+
+  /// Disables Back/Next and swaps the CTA for a spinner mid-upload.
+  final bool submitting;
+
   final VoidCallback? onBack;
   final VoidCallback onNext;
 
@@ -216,7 +266,10 @@ class _WizardFooter extends StatelessWidget {
                 onPressed: onBack,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: EcoTraceColors.forest,
-                  side: const BorderSide(color: EcoTraceColors.forest, width: 2),
+                  side: const BorderSide(
+                    color: EcoTraceColors.forest,
+                    width: 2,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -230,17 +283,21 @@ class _WizardFooter extends StatelessWidget {
             child: SizedBox(
               height: 48,
               child: FilledButton(
-                onPressed: onNext,
+                onPressed: submitting ? null : onNext,
                 style: FilledButton.styleFrom(
                   backgroundColor: EcoTraceColors.forest,
+                  disabledBackgroundColor: EcoTraceColors.forest,
+                  disabledForegroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                child: Text(
-                  isSubmit ? 'Submit verification' : 'Continue',
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
+                child: submitting && isSubmit
+                    ? const EcoButtonLoader()
+                    : Text(
+                        isSubmit ? 'Submit verification' : 'Continue',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
               ),
             ),
           ),
@@ -251,7 +308,11 @@ class _WizardFooter extends StatelessWidget {
 }
 
 class _StatusStep extends StatelessWidget {
-  const _StatusStep({super.key, required this.selected, required this.onSelect});
+  const _StatusStep({
+    super.key,
+    required this.selected,
+    required this.onSelect,
+  });
 
   final PlantStatus? selected;
   final ValueChanged<PlantStatus> onSelect;
@@ -405,11 +466,8 @@ class _MeasurementStep extends StatelessWidget {
             hintText: 'cm, e.g. 24.5',
             suffixText: 'cm',
           ),
-          validator: (value) => _validate(
-            value,
-            'DBH',
-            MeasurementLimits.maxDbhCm,
-          ),
+          validator: (value) =>
+              _validate(value, 'DBH', MeasurementLimits.maxDbhCm),
         ),
         const SizedBox(height: 14),
         TextFormField(
@@ -421,11 +479,8 @@ class _MeasurementStep extends StatelessWidget {
             hintText: 'cm, e.g. 450',
             suffixText: 'cm',
           ),
-          validator: (value) => _validate(
-            value,
-            'Crown dimension',
-            MeasurementLimits.maxCrownCm,
-          ),
+          validator: (value) =>
+              _validate(value, 'Crown dimension', MeasurementLimits.maxCrownCm),
         ),
         const SizedBox(height: 14),
         TextFormField(
@@ -443,15 +498,13 @@ class _MeasurementStep extends StatelessWidget {
 
   /// Validates a measurement entered in the field.
   ///
-  static String? _validate(
-    String? raw,
-    String label,
-    double maxCm,
-  ) {
+  static String? _validate(String? raw, String label, double maxCm) {
     final value = double.tryParse((raw ?? '').trim());
     if (value == null) return 'Enter $label';
     if (value <= 0) return '$label must be greater than 0';
-    if (value > maxCm) return '$label cannot exceed ${maxCm.toStringAsFixed(0)}';
+    if (value > maxCm) {
+      return '$label cannot exceed ${maxCm.toStringAsFixed(0)}';
+    }
     return null;
   }
 }
@@ -486,19 +539,13 @@ class _EvidenceStep extends StatelessWidget {
     return ListView(
       key: key,
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-      children: [
-        EvidenceCapture(photoPaths: photoPaths, onChanged: onChanged),
-      ],
+      children: [EvidenceCapture(photoPaths: photoPaths, onChanged: onChanged)],
     );
   }
 }
 
 class _ReviewStep extends StatelessWidget {
-  const _ReviewStep({
-    super.key,
-    required this.tree,
-    required this.draft,
-  });
+  const _ReviewStep({super.key, required this.tree, required this.draft});
 
   final MapTree tree;
   final VerificationDraft draft;
@@ -527,7 +574,10 @@ class _ReviewStep extends StatelessWidget {
             if (status.requiresMeasurements)
               _Row('DBH', '${draft.dbhCm?.toStringAsFixed(1) ?? '—'} cm'),
             if (status.requiresMeasurements)
-              _Row('Crown', '${draft.crownDimensionCm?.toStringAsFixed(1) ?? '—'} cm'),
+              _Row(
+                'Crown',
+                '${draft.crownDimensionCm?.toStringAsFixed(1) ?? '—'} cm',
+              ),
             if (draft.notes.isNotEmpty) _Row('Notes', draft.notes),
             if (status.requiresEvidence)
               _Row('Photos', '${draft.photoPaths.length}'),

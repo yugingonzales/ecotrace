@@ -68,7 +68,8 @@ class MapTree {
   String get statusLabel => status.label;
 
   /// Compact coordinate pair shown in the details card, e.g. `12.5101, 124.6679`.
-  String get coordinates => '${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}';
+  String get coordinates =>
+      '${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}';
 
   /// Photos guaranteed non-empty for the UI, so widgets never guard on `isEmpty`.
   /// Every tree currently shares the EcoTrace placeholder badge until the admin

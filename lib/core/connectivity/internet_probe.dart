@@ -17,8 +17,9 @@ class HttpInternetProbe implements InternetProbe {
   HttpInternetProbe({Uri? endpoint}) : _endpoint = endpoint ?? defaultEndpoint;
 
   /// Public, stable, and returns a tiny response.
-  static final Uri defaultEndpoint =
-      Uri.parse('https://www.gstatic.com/generate_204');
+  static final Uri defaultEndpoint = Uri.parse(
+    'https://www.gstatic.com/generate_204',
+  );
 
   final Uri _endpoint;
 

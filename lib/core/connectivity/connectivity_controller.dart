@@ -13,9 +13,9 @@ class ConnectivityController extends ValueNotifier<ConnectionStatus> {
     InternetProbe? probe,
     ConnectionStatus initialStatus = ConnectionStatus.unreachable,
     this.heartbeat = defaultHeartbeat,
-  })  : _connectivity = connectivity ?? Connectivity(),
-        _probe = probe ?? HttpInternetProbe(),
-        super(initialStatus);
+  }) : _connectivity = connectivity ?? Connectivity(),
+       _probe = probe ?? HttpInternetProbe(),
+       super(initialStatus);
 
   final Connectivity _connectivity;
   final InternetProbe _probe;
@@ -97,9 +97,7 @@ class ConnectivityController extends ValueNotifier<ConnectionStatus> {
       final reachable = await _probe.isReachable();
       if (generation != _generation) return;
       _publish(
-        reachable
-            ? ConnectionStatus.online
-            : ConnectionStatus.unreachable,
+        reachable ? ConnectionStatus.online : ConnectionStatus.unreachable,
       );
       _startHeartbeat();
     } finally {

@@ -8,29 +8,29 @@ class EmptyEventsState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SurfaceCard(
-        child: Column(
-          children: [
-            const Icon(
-              Icons.event_busy_outlined,
-              color: EcoTraceColors.muted,
-              size: 32,
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'No activities found',
-              style: TextStyle(
-                color: Color(0xFF0A231C),
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Try another date, search term, or filter.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: EcoTraceColors.muted, fontSize: 12),
-            ),
-          ],
+    child: Column(
+      children: [
+        const Icon(
+          Icons.event_busy_outlined,
+          color: EcoTraceColors.muted,
+          size: 32,
         ),
-      );
+        const SizedBox(height: 10),
+        const Text(
+          'No activities found',
+          style: TextStyle(
+            color: Color(0xFF0A231C),
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Try another date, search term, or filter.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: EcoTraceColors.muted, fontSize: 12),
+        ),
+      ],
+    ),
+  );
 }

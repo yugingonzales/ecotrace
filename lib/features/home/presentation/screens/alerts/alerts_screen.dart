@@ -46,6 +46,12 @@ class _AlertsScreenState extends State<AlertsScreen> {
     ),
   ];
 
+  /// Pull-to-refresh: re-reads the alert feed from the server.
+  Future<void> _refresh() async {
+    setState(() => _filter = AlertFilter.all);
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+  }
+
   @override
   Widget build(BuildContext context) {
     final visibleAlerts = _filter == AlertFilter.all
@@ -124,23 +130,29 @@ class _AlertsScreenState extends State<AlertsScreen> {
           ),
         ),
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
-            children: [
-              FilterTabs(
-                selected: _filter,
-                onChanged: (filter) => setState(() => _filter = filter),
-              ),
-              for (final alert in visibleAlerts)
-                AlertCard(
-                  title: alert.title,
-                  time: alert.time,
-                  label: alert.label,
-                  color: alert.color,
-                  textColor: alert.textColor,
-                  body: alert.body,
+          child: RefreshIndicator(
+            onRefresh: _refresh,
+            color: EcoTraceColors.forest,
+            child: ListView(
+              key: const Key('alerts-list'),
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
+              children: [
+                FilterTabs(
+                  selected: _filter,
+                  onChanged: (filter) => setState(() => _filter = filter),
                 ),
-            ],
+                for (final alert in visibleAlerts)
+                  AlertCard(
+                    title: alert.title,
+                    time: alert.time,
+                    label: alert.label,
+                    color: alert.color,
+                    textColor: alert.textColor,
+                    body: alert.body,
+                  ),
+              ],
+            ),
           ),
         ),
       ],

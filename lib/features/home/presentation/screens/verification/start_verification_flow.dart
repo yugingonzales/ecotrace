@@ -25,7 +25,8 @@ class StartVerificationFlow extends StatefulWidget {
 }
 
 class _StartVerificationFlowState extends State<StartVerificationFlow> {
-  late final PositionSource _source = widget.positionSource ?? GeolocatorPositionSource();
+  late final PositionSource _source =
+      widget.positionSource ?? GeolocatorPositionSource();
   bool _manualChosen = false;
   bool _checking = true;
   ProximityResult? _result;
@@ -97,12 +98,14 @@ class _StartVerificationFlowState extends State<StartVerificationFlow> {
     if (_checking) {
       return _scaffold(const _LocatingState());
     }
-    return _scaffold(_GateState(
-      key: const ValueKey('gate'),
-      result: _result!,
-      onRetry: _checkProximity,
-      onProceed: _openWizard,
-    ));
+    return _scaffold(
+      _GateState(
+        key: const ValueKey('gate'),
+        result: _result!,
+        onRetry: _checkProximity,
+        onProceed: _openWizard,
+      ),
+    );
   }
 
   Widget _scaffold(Widget child) => Scaffold(
@@ -164,10 +167,7 @@ class _GateState extends StatelessWidget {
       return _FailureNotice(failure: result.failure!, onRetry: onRetry);
     }
     if (result.isWithinRange) {
-      return _WithinRangeNotice(
-        meters: result.meters!,
-        onProceed: onProceed,
-      );
+      return _WithinRangeNotice(meters: result.meters!, onProceed: onProceed);
     }
     return _OutOfRangeNotice(meters: result.meters!, onRetry: onRetry);
   }
@@ -186,8 +186,11 @@ class _WithinRangeNotice extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.location_on_rounded,
-              color: EcoTraceColors.forest, size: 54),
+          const Icon(
+            Icons.location_on_rounded,
+            color: EcoTraceColors.forest,
+            size: 54,
+          ),
           const SizedBox(height: 16),
           Text(
             'At the plant',
@@ -239,8 +242,11 @@ class _OutOfRangeNotice extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.wrong_location_rounded,
-              color: EcoTraceColors.error, size: 54),
+          const Icon(
+            Icons.wrong_location_rounded,
+            color: EcoTraceColors.error,
+            size: 54,
+          ),
           const SizedBox(height: 16),
           const Text(
             'Too far from the plant',
@@ -275,8 +281,10 @@ class _OutOfRangeNotice extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              child: const Text('Check again',
-                  style: TextStyle(fontWeight: FontWeight.w800)),
+              child: const Text(
+                'Check again',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
             ),
           ),
         ],
@@ -292,12 +300,10 @@ class _FailureNotice extends StatelessWidget {
   final VoidCallback onRetry;
 
   String get _message => switch (failure) {
-    ProximityFailure.locationServicesDisabled =>
-      'Location services are switched off on this device. Turn them on to verify a plant.',
+    ProximityFailure.locationServicesDisabled => 'Location services are switched off on this device. Turn them on to verify a plant.',
     ProximityFailure.permissionDenied =>
       'EcoTrace needs location access to confirm you are at the plant.',
-    ProximityFailure.permissionDeniedForever =>
-      'Location access is blocked for EcoTrace. Enable it in Settings to verify a plant.',
+    ProximityFailure.permissionDeniedForever => 'Location access is blocked for EcoTrace. Enable it in Settings to verify a plant.',
     ProximityFailure.fixUnavailable =>
       'Could not get a position fix. Move into the open sky and try again.',
   };
@@ -339,8 +345,10 @@ class _FailureNotice extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              child: const Text('Try again',
-                  style: TextStyle(fontWeight: FontWeight.w800)),
+              child: const Text(
+                'Try again',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
             ),
           ),
         ],

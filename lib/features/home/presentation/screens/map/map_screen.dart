@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
 import '../../../../../core/connectivity/app_connectivity_scope.dart';
+import '../../../../../core/loading/loading_views.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../field_verification/domain/tree_record.dart';
 import '../../models/campus_data.dart';
@@ -48,6 +49,10 @@ class _MapScreenState extends State<MapScreen> {
   Set<String>? _nearbyTreeIds;
   List<List<LatLng>> _routeSegments = const [];
   bool _routing = false;
+
+  /// True while a GPS fix is being acquired, so the map can say so instead of
+  /// leaving the officer staring at a marker that has not moved yet.
+  bool _locating = false;
   StreamSubscription<Position>? _positionSubscription;
 
   final Map<String, TreeStatus> _verifiedStatuses = {};
@@ -125,6 +130,7 @@ class _MapScreenState extends State<MapScreen> {
       if (mounted) setState(() => _tracking = false);
       return;
     }
+    if (_locating) return;
 
     if (!await Geolocator.isLocationServiceEnabled()) {
       if (!mounted) return;
@@ -152,11 +158,13 @@ class _MapScreenState extends State<MapScreen> {
     if (permission == LocationPermission.denied) return;
 
     try {
+      if (mounted) setState(() => _locating = true);
       final position = await Geolocator.getCurrentPosition();
       if (!mounted) return;
       setState(() {
         _currentPosition = position;
         _tracking = true;
+        _locating = false;
       });
       _mapController.move(LatLng(position.latitude, position.longitude), 16);
       _positionSubscription =
@@ -171,6 +179,7 @@ class _MapScreenState extends State<MapScreen> {
           });
     } on Object {
       if (!mounted) return;
+      setState(() => _locating = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Unable to read the current location.')),
       );
@@ -400,6 +409,19 @@ class _MapScreenState extends State<MapScreen> {
           isTracking: _tracking,
           routeSegments: _routeSegments,
         ),
+        if (_locating || _routing)
+          Positioned(
+            top: headerTop + MapHeader.height + 8,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: _MapBusyChip(
+                message: _locating
+                    ? 'Finding your location'
+                    : 'Calculating route',
+              ),
+            ),
+          ),
         Positioned(
           left: 10,
           bottom: 12,
@@ -435,12 +457,17 @@ class _MapScreenState extends State<MapScreen> {
           child: Tooltip(
             message: _tracking ? 'Stop live tracking' : 'Track my location',
             child: _MapActionButton(
-              icon: _tracking ? Icons.my_location : Icons.gps_fixed_rounded,
+              // Acquiring a fix can take several seconds indoors; a spinner in
+              // the button itself reads as "working" without covering the map.
+              icon: _locating
+                  ? null
+                  : (_tracking ? Icons.my_location : Icons.gps_fixed_rounded),
               onTap: _toggleTracking,
               color: Colors.white,
               iconColor: _tracking
                   ? const Color(0xFF2563EB)
                   : EcoTraceColors.forest,
+              busy: _locating,
             ),
           ),
         ),
@@ -509,9 +536,7 @@ class _MapScreenState extends State<MapScreen> {
         Positioned(
           right: 12,
           // 12px card inset + measured card height + 12px breathing room.
-          bottom: _selectedTree == null
-              ? 92
-              : 12 + _detailsCardHeight + 12,
+          bottom: _selectedTree == null ? 92 : 12 + _detailsCardHeight + 12,
           child: Tooltip(
             message: 'Recenter on my location',
             child: _MapActionButton(
@@ -556,24 +581,70 @@ class _MapScreenState extends State<MapScreen> {
 // Diameter of the circular, icon-only map action buttons.
 const double _kMapActionSize = 44;
 
+/// Floating status pill for work the map is doing on its own (GPS, routing).
+class _MapBusyChip extends StatelessWidget {
+  const _MapBusyChip({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: EcoTraceColors.field,
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x33000000),
+          blurRadius: 10,
+          offset: Offset(0, 2),
+        ),
+      ],
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox.square(
+          dimension: 14,
+          child: EcoButtonLoader(color: EcoTraceColors.forest, size: 14),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          message,
+          style: const TextStyle(
+            color: Color(0xFF0A231C),
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 class _MapActionButton extends StatelessWidget {
   const _MapActionButton({
     required this.icon,
     required this.onTap,
     required this.color,
     this.iconColor = Colors.white,
+    this.busy = false,
   });
 
-  final IconData icon;
+  /// Ignored while [busy] — the spinner takes the button's place.
+  final IconData? icon;
   final VoidCallback onTap;
   final Color color;
   final Color iconColor;
+
+  /// Swaps the icon for a spinner so a slow action still looks alive.
+  final bool busy;
 
   @override
   Widget build(BuildContext context) => Material(
     color: Colors.transparent,
     child: InkWell(
-      onTap: onTap,
+      onTap: busy ? null : onTap,
       customBorder: const CircleBorder(),
       child: Container(
         width: _kMapActionSize,
@@ -585,7 +656,11 @@ class _MapActionButton extends StatelessWidget {
             BoxShadow(color: Color(0x26000000), blurRadius: 10),
           ],
         ),
-        child: Center(child: Icon(icon, color: iconColor, size: 21)),
+        child: Center(
+          child: busy
+              ? EcoButtonLoader(color: iconColor, size: 18)
+              : Icon(icon, color: iconColor, size: 21),
+        ),
       ),
     ),
   );

@@ -23,8 +23,7 @@ class ConnectivityBannerHost extends StatefulWidget {
   final Widget child;
 
   @override
-  State<ConnectivityBannerHost> createState() =>
-      _ConnectivityBannerHostState();
+  State<ConnectivityBannerHost> createState() => _ConnectivityBannerHostState();
 }
 
 class _ConnectivityBannerHostState extends State<ConnectivityBannerHost> {
@@ -77,9 +76,7 @@ class _ConnectivityBannerHostState extends State<ConnectivityBannerHost> {
   void _showFailureNotice(ConnectionStatus status) {
     final unreachable = status == ConnectionStatus.unreachable;
     _showSnackBar(
-      message: unreachable
-          ? 'No internet access'
-          : 'No internet connection',
+      message: unreachable ? 'No internet access' : 'No internet connection',
       backgroundColor: EcoTraceColors.error,
     );
   }

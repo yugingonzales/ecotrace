@@ -22,18 +22,18 @@ class MapHeader extends StatelessWidget {
   static const double height = _paddingV * 2 + _toggleSize;
 
   String get _label => switch (connection) {
-        ConnectionStatus.online => 'Online',
-        ConnectionStatus.offline => 'Offline',
-        ConnectionStatus.unreachable => 'No internet',
-      };
+    ConnectionStatus.online => 'Online',
+    ConnectionStatus.offline => 'Offline',
+    ConnectionStatus.unreachable => 'No internet',
+  };
 
   Color get _connectionColor => switch (connection) {
-        ConnectionStatus.online => const Color(0xFFA3E635),
-        ConnectionStatus.offline => EcoTraceColors.error,
-        // Amber rather than red: the radio is up, so this is recoverable
-        // without touching the network toggle.
-        ConnectionStatus.unreachable => EcoTraceColors.lemon,
-      };
+    ConnectionStatus.online => const Color(0xFFA3E635),
+    ConnectionStatus.offline => EcoTraceColors.error,
+    // Amber rather than red: the radio is up, so this is recoverable
+    // without touching the network toggle.
+    ConnectionStatus.unreachable => EcoTraceColors.lemon,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -119,4 +119,3 @@ class MapHeader extends StatelessWidget {
     );
   }
 }
-

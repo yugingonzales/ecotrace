@@ -18,6 +18,7 @@ Future<void> showParticipationReceipt(
   BuildContext context,
   LocalEvent event, {
   bool useRootNavigator = true,
+  bool leaving = false,
 }) {
   return showGeneralDialog<void>(
     context: context,
@@ -27,7 +28,7 @@ Future<void> showParticipationReceipt(
     barrierColor: const Color(0x660A231C),
     transitionDuration: const Duration(milliseconds: 280),
     pageBuilder: (context, animation, secondaryAnimation) =>
-        _ParticipationReceiptRoute(event: event),
+        _ParticipationReceiptRoute(event: event, leaving: leaving),
     transitionBuilder: (context, animation, secondaryAnimation, child) {
       return FadeTransition(
         opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
@@ -43,9 +44,13 @@ Future<void> showParticipationReceipt(
 }
 
 class _ParticipationReceiptRoute extends StatefulWidget {
-  const _ParticipationReceiptRoute({required this.event});
+  const _ParticipationReceiptRoute({
+    required this.event,
+    required this.leaving,
+  });
 
   final LocalEvent event;
+  final bool leaving;
 
   @override
   State<_ParticipationReceiptRoute> createState() =>
@@ -87,6 +92,7 @@ class _ParticipationReceiptRouteState extends State<_ParticipationReceiptRoute>
           child: ParticipationReceiptCard(
             event: widget.event,
             remaining: _countdown,
+            leaving: widget.leaving,
           ),
         ),
       ),
@@ -100,9 +106,11 @@ class ParticipationReceiptCard extends StatelessWidget {
     super.key,
     required this.event,
     this.remaining,
+    this.leaving = false,
   });
 
   final LocalEvent event;
+  final bool leaving;
 
   /// Counts from 0 to 1 over the receipt's lifetime and drains the bar at the
   /// foot of the pass. When null the countdown bar is omitted.
@@ -111,12 +119,14 @@ class ParticipationReceiptCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // The user themselves are now part of the attending group.
-    final attending = event.attendeeCount + 1;
+    final attending = leaving ? event.attendeeCount : event.attendeeCount + 1;
 
     return Semantics(
       container: true,
       liveRegion: true,
-      label: 'Participation confirmed for ${event.title}',
+      label: leaving
+          ? 'Activity left: ${event.title}'
+          : 'Participation confirmed for ${event.title}',
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -222,20 +232,20 @@ class ParticipationReceiptCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
-                children: const [
+                children: [
                   Text(
-                    'PARTICIPATION CONFIRMED',
-                    style: TextStyle(
+                    leaving ? 'ACTIVITY LEFT' : 'PARTICIPATION CONFIRMED',
+                    style: const TextStyle(
                       color: EcoTraceColors.lemon,
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
                       letterSpacing: .6,
                     ),
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Text(
-                    'You\'re in!',
-                    style: TextStyle(
+                    leaving ? 'You\'ve left' : 'You\'re in!',
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 24,
                       height: 1.05,

@@ -19,13 +19,13 @@ class Avatar extends StatelessWidget {
     ),
     child: Center(
       child: Text(
-          initials,
-          style: const TextStyle(
-            color: EcoTraceColors.lemon,
-            fontSize: 8,
-            fontWeight: FontWeight.w800,
-          ),
+        initials,
+        style: const TextStyle(
+          color: EcoTraceColors.lemon,
+          fontSize: 8,
+          fontWeight: FontWeight.w800,
         ),
+      ),
     ),
   );
 }

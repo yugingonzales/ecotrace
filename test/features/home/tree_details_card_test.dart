@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ecotrace/core/theme/app_theme.dart';
@@ -33,14 +34,14 @@ Widget _harness({
       child: Align(
         alignment: Alignment.bottomCenter,
         child: TreeDetailsCard(
-        tree: tree,
-        onClose: onClose ?? () {},
-        onStartVerification: onStartVerification ?? () {},
-        onReportIncident: onReportIncident ?? () {},
-        onTrace: onTrace ?? () {},
-        isTracing: isTracing,
-        hasRoute: hasRoute,
-        onClearRoute: onClearRoute ?? () {},
+          tree: tree,
+          onClose: onClose ?? () {},
+          onStartVerification: onStartVerification ?? () {},
+          onReportIncident: onReportIncident ?? () {},
+          onTrace: onTrace ?? () {},
+          isTracing: isTracing,
+          hasRoute: hasRoute,
+          onClearRoute: onClearRoute ?? () {},
         ),
       ),
     ),
@@ -63,27 +64,33 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
+    // `size` must be threaded into MediaQueryData: the card derives its maxHeight
+    // from MediaQuery.sizeOf, and a zero-sized query collapses it to nothing.
     await tester.pumpWidget(
       MediaQuery(
-        data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+        data: MediaQueryData(
+          size: size,
+          textScaler: TextScaler.linear(textScale),
+        ),
         child: child ?? _harness(),
       ),
     );
     await tester.pump();
-    debugPrint('CARD ${tester.getRect(find.byType(TreeDetailsCard))}');
-    debugPrint(
-      'CLOSE ${tester.getRect(find.byIcon(Icons.close_rounded))}',
-    );
-    debugPrint('SCAFFOLD ${tester.getRect(find.byType(Scaffold))}');
   }
 
-  testWidgets('stays inside its 45% cap on a small phone', (
+  testWidgets('stays inside its maxHeight cap on a small phone', (
     WidgetTester tester,
   ) async {
     await pumpAt(tester, size: const Size(320, 568));
 
     final size = tester.getSize(find.byType(TreeDetailsCard));
-    expect(size.height, lessThanOrEqualTo(568 * 0.45));
+    // Guards the harness itself: without a real MediaQuery size the card
+    // collapses to zero and every other assertion would pass vacuously.
+    expect(size.height, greaterThan(0));
+    expect(
+      size.height,
+      lessThanOrEqualTo(568 * TreeDetailsCard.maxHeightFraction),
+    );
     expect(size.width, lessThanOrEqualTo(320));
     expect(tester.takeException(), isNull);
   });
@@ -108,19 +115,39 @@ void main() {
       datePlanted: '12 March 2026 (early rainy season)',
       zone: 'Zone III',
     );
-    await pumpAt(tester, size: const Size(320, 568), child: _harness(tree: long));
+    await pumpAt(
+      tester,
+      size: const Size(320, 568),
+      child: _harness(tree: long),
+    );
 
     expect(tester.takeException(), isNull);
-    final allText = tester
-        .widgetList<Text>(find.byType(Text))
-        .map((t) => t.data ?? '')
-        .join(' ');
-    expect(allText.contains('very long extra text'), false);
+    // Ellipsis is a paint effect: the untruncated string stays in Text.data, so
+    // asserting on the model text can never fail. Assert the render state.
+    final chips = tester
+        .widgetList<Text>(
+          find.descendant(
+            of: find.byType(TreeDetailsCard),
+            matching: find.byType(Text),
+          ),
+        )
+        .where((t) => t.data != null && t.data!.contains('Carabao'))
+        .toList();
+    expect(chips, isNotEmpty, reason: 'the species chip should be rendered');
+
+    final paragraph = tester.renderObject<RenderParagraph>(
+      find.text(chips.first.data!),
+    );
+    expect(paragraph.maxLines, 1);
+    expect(paragraph.didExceedMaxLines, isTrue);
+
     // The raw data is still in the tree, just clipped by the chip.
     expect(long.species, contains('Carabao'));
   });
 
-  testWidgets('wires every action to its callback', (WidgetTester tester) async {
+  testWidgets('wires every action to its callback', (
+    WidgetTester tester,
+  ) async {
     var closed = 0;
     var verified = 0;
     var reported = 0;
@@ -140,41 +167,28 @@ void main() {
       ),
     );
 
-    // All taps are at or near the card bottom edge; scroll up slightly so the
-// targets are within the test viewport before tapping.
-// Scroll the inner scroll view to reveal the bottom actions.
-final scrollable = find.descendant(
-  of: find.byType(TreeDetailsCard),
-  matching: find.byType(SingleChildScrollView),
-);
-// EnsureVisible fails when the widget is already scrolled off in some cases;
-// instead scroll the scrollable to the bottom so all targets become hittable.
-if (scrollable.evaluate().isNotEmpty) {
-  await tester.scrollUntilVisible(
-    find.text('Clear route'),
-    300,
-    scrollable: find.byType(SingleChildScrollView),
-  );
-} else {
-  await tester.ensureVisible(find.byIcon(Icons.close_rounded));
-}
-await tester.pump();
-// Tap the buttons' hit boxes directly to avoid off-screen warnings in this
-// layout.
-await tester.tap(find.byIcon(Icons.close_rounded), warnIfMissed: false);
-await tester.tap(find.text('Start Verification'), warnIfMissed: false);
-await tester.tap(find.text('Start navigation'), warnIfMissed: false);
-await tester.tap(find.text('Report incident'), warnIfMissed: false);
-await tester.tap(find.text('Clear route'), warnIfMissed: false);
+    // Close sits at the top of the card and the actions at the bottom, so each
+    // target is scrolled into view immediately before it is tapped. Scrolling
+    // once up front would leave the earlier targets off-screen, and a tap that
+    // lands on nothing still "succeeds" when warnIfMissed is false.
+    Future<void> tapInView(Finder target) async {
+      await tester.ensureVisible(target);
+      await tester.pump();
+      await tester.tap(target);
+      await tester.pump();
+    }
+
+    await tapInView(find.byIcon(Icons.close_rounded));
+    await tapInView(find.text('Start Verification'));
+    await tapInView(find.text('Start navigation'));
+    await tapInView(find.text('Report incident'));
+    await tapInView(find.text('Clear route'));
     await tester.pumpAndSettle();
 
-    expect(<int>[closed, verified, traced, reported, cleared], <int>[
-      1,
-      1,
-      1,
-      1,
-      1,
-    ]);
+    expect(
+      <int>[closed, verified, traced, reported, cleared],
+      <int>[1, 1, 1, 1, 1],
+    );
   });
 
   testWidgets('disables navigation and spins while tracing', (

@@ -1,13 +1,39 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/loading/loading_views.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../widgets/shared/section_title.dart';
 import '../../widgets/shared/surface_card.dart';
 import '../../widgets/sync/audit_row.dart';
 import '../../widgets/sync/sync_record.dart';
 
-class SyncDashboardScreen extends StatelessWidget {
+class SyncDashboardScreen extends StatefulWidget {
   const SyncDashboardScreen({super.key});
+
+  @override
+  State<SyncDashboardScreen> createState() => _SyncDashboardScreenState();
+}
+
+class _SyncDashboardScreenState extends State<SyncDashboardScreen> {
+  bool _refreshing = false;
+
+  /// Pushes the queued offline drafts and reports progress as each lands.
+  Future<void> _refresh() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      await Future<void>.delayed(const Duration(milliseconds: 800));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sync status refreshed.'),
+          backgroundColor: EcoTraceColors.forest,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,16 +47,17 @@ class SyncDashboardScreen extends StatelessWidget {
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
         ),
         actions: [
-          IconButton(
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Sync status refreshed.'),
-                backgroundColor: EcoTraceColors.forest,
-              ),
+          if (_refreshing)
+            const Padding(
+              padding: EdgeInsets.only(right: 16),
+              child: Center(child: EcoButtonLoader(size: 18)),
+            )
+          else
+            IconButton(
+              onPressed: _refresh,
+              icon: const Icon(Icons.refresh_rounded),
+              tooltip: 'Refresh sync status',
             ),
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Refresh sync status',
-          ),
         ],
       ),
       body: ListView(

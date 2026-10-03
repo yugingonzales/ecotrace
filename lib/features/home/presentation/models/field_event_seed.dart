@@ -19,9 +19,9 @@ List<LocalEvent> buildFieldEventSeed({DateTime? now}) {
       time: '08:00 AM - 11:30 AM',
       title: 'Tree planting & tagging',
       location: 'Sector 4 Reforestation Zone',
-      description:
-          'Field tagging mission for native tree saplings. Bring your mobile tag verification app logged in.',
+      description: 'Field tagging mission for native tree saplings. Bring your mobile tag verification app logged in.',
       attendeeCount: 18,
+      endDate: on(1),
     ),
     LocalEvent(
       id: 'health-survey',
@@ -29,8 +29,7 @@ List<LocalEvent> buildFieldEventSeed({DateTime? now}) {
       time: '01:30 PM - 03:00 PM',
       title: 'Sector 4 health survey',
       location: 'North Quadrant Field Station',
-      description:
-          'Canopy inspection and growth rate measurements for assigned monitoring teams.',
+      description: 'Canopy inspection and growth rate measurements for assigned monitoring teams.',
       attendeeCount: 12,
       warm: true,
     ),
@@ -40,8 +39,7 @@ List<LocalEvent> buildFieldEventSeed({DateTime? now}) {
       time: '09:00 AM - 10:30 AM',
       title: 'Verification feedback review',
       location: 'EcoTrace Field Office',
-      description:
-          'Review returned audit feedback and resolve tree records that need a second verification pass.',
+      description: 'Review returned audit feedback and resolve tree records that need a second verification pass.',
       attendeeCount: 7,
     ),
     LocalEvent(
@@ -50,8 +48,7 @@ List<LocalEvent> buildFieldEventSeed({DateTime? now}) {
       time: '10:00 AM - 12:00 PM',
       title: 'North quadrant canopy check',
       location: 'North Quadrant Field Station',
-      description:
-          'Follow-up measurements for trees flagged as at risk in the latest audit cycle.',
+      description: 'Follow-up measurements for trees flagged as at risk in the latest audit cycle.',
       attendeeCount: 9,
       warm: true,
     ),

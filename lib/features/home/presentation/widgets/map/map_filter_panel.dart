@@ -112,87 +112,85 @@ class MapFilterPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: .97),
         borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(color: Color(0x26000000), blurRadius: 14),
+        boxShadow: const [BoxShadow(color: Color(0x26000000), blurRadius: 14)],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.filter_alt_outlined,
+                size: 15,
+                color: EcoTraceColors.forest,
+              ),
+              const SizedBox(width: 6),
+              const Text(
+                'FILTERS',
+                style: TextStyle(
+                  color: Color(0xFF7A9185),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: .6,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${campusTrees.length} trees',
+                style: const TextStyle(
+                  color: Color(0xFF7A9185),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text('ZONES', style: _sectionStyle),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _ZonePill(
+                label: 'All zones',
+                count: campusTrees.length,
+                selected: zoneFilter == null,
+                onTap: () => onZoneSelected(null),
+              ),
+              for (final zone in campusZones)
+                _ZonePill(
+                  label: zone.name,
+                  count: _zoneCount(zone.name),
+                  color: zone.color,
+                  selected: zoneFilter == zone.name,
+                  onTap: () => onZoneSelected(zone.name),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text('STATUS', style: _sectionStyle),
+          const SizedBox(height: 4),
+          _StatusTile(
+            label: 'All statuses',
+            count: campusTrees.length,
+            color: EcoTraceColors.forest,
+            selected: statusFilter == null,
+            onTap: () => onStatusSelected(null),
+          ),
+          for (final status in TreeStatus.values)
+            _StatusTile(
+              label: status.label,
+              count: _statusCount(status),
+              color: status.color,
+              selected: statusFilter == status,
+              onTap: () => onStatusSelected(status),
+            ),
         ],
       ),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(
-              Icons.filter_alt_outlined,
-              size: 15,
-              color: EcoTraceColors.forest,
-            ),
-            const SizedBox(width: 6),
-            const Text(
-              'FILTERS',
-              style: TextStyle(
-                color: Color(0xFF7A9185),
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
-                letterSpacing: .6,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              '${campusTrees.length} trees',
-              style: const TextStyle(
-                color: Color(0xFF7A9185),
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        const Text('ZONES', style: _sectionStyle),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            _ZonePill(
-              label: 'All zones',
-              count: campusTrees.length,
-              selected: zoneFilter == null,
-              onTap: () => onZoneSelected(null),
-            ),
-            for (final zone in campusZones)
-              _ZonePill(
-                label: zone.name,
-                count: _zoneCount(zone.name),
-                color: zone.color,
-                selected: zoneFilter == zone.name,
-                onTap: () => onZoneSelected(zone.name),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        const Text('STATUS', style: _sectionStyle),
-        const SizedBox(height: 4),
-        _StatusTile(
-          label: 'All statuses',
-          count: campusTrees.length,
-          color: EcoTraceColors.forest,
-          selected: statusFilter == null,
-          onTap: () => onStatusSelected(null),
-        ),
-        for (final status in TreeStatus.values)
-          _StatusTile(
-            label: status.label,
-            count: _statusCount(status),
-            color: status.color,
-            selected: statusFilter == status,
-            onTap: () => onStatusSelected(status),
-          ),
-      ],
     ),
-  ),
-);
+  );
 }
 
 class _ZonePill extends StatelessWidget {

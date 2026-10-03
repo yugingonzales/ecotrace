@@ -457,6 +457,42 @@ void main() {
     expect(find.text('Leave activity'), findsOneWidget);
   });
 
+  testWidgets('leaving participation requires Quit and shows success', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: AppShell()));
+
+    await tester.tap(find.text('Tree planting & tagging'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Join this activity'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirm joining'));
+    await tester.pump(kParticipationReceiptDuration);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Leave activity'));
+    await tester.pumpAndSettle();
+    expect(find.text('LEAVE ACTIVITY'), findsOneWidget);
+    expect(find.text('Keep activity'), findsOneWidget);
+
+    final leaveButton = find.widgetWithText(FilledButton, 'Leave activity');
+    expect(leaveButton, findsOneWidget);
+    expect(tester.widget<FilledButton>(leaveButton).onPressed, isNull);
+
+    await tester.enterText(
+      find.byKey(const Key('leave-confirmation-input')),
+      'Quit',
+    );
+    await tester.pump();
+    expect(tester.widget<FilledButton>(leaveButton).onPressed, isNotNull);
+    await tester.tap(leaveButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text("You've left"), findsOneWidget);
+    expect(find.text('ACTIVITY LEFT'), findsOneWidget);
+  });
+
   testWidgets('participation receipt can be dismissed early by tapping it', (
     WidgetTester tester,
   ) async {
@@ -535,10 +571,10 @@ void main() {
     await tester.pump(kParticipationReceiptDuration);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Search'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'tree');
-    await tester.tap(find.text('Search'));
+    await tester.enterText(
+      find.byKey(const Key('events-search-field')),
+      'tree',
+    );
     await tester.pumpAndSettle();
     expect(find.text('Tree planting & tagging'), findsOneWidget);
 
@@ -612,7 +648,7 @@ void main() {
     expect(sheet, findsOneWidget);
     expect(
       tester.getSize(sheet).height,
-      lessThanOrEqualTo(568 * 0.45),
+      lessThanOrEqualTo(568 * TreeDetailsCard.maxHeightFraction),
       reason: 'the sheet must respect its own maxHeight cap',
     );
 

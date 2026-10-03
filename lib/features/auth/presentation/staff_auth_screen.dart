@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/loading/loading_views.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../home/presentation/app_shell.dart';
 import '../domain/monitoring_staff.dart';
@@ -73,15 +74,25 @@ class _StaffAuthScreenState extends State<StaffAuthScreen> {
     super.dispose();
   }
 
+  /// Authenticates the officer, then enters the shell.
+  ///
+  /// `_submitting` stays true across the whole request so the button loader is
+  /// visible for the whole wait, not just the navigation frame.
   Future<void> _submit() async {
+    if (_submitting.value) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
     _submitting.value = true;
-    await Future<void>.value();
+    await _authenticate();
     if (!mounted) return;
     _submitting.value = false;
     if (!mounted) return;
     Navigator.of(context).pushReplacement(_smoothRoute(const AppShell()));
   }
+
+  /// Stands in for the credentials round-trip. A real implementation awaits the
+  /// API call here and surfaces a failure message before `_submit` resets.
+  Future<void> _authenticate() =>
+      Future<void>.delayed(const Duration(milliseconds: 900));
 
   static PageRouteBuilder<void> _smoothRoute(Widget page) => PageRouteBuilder(
     transitionDuration: const Duration(milliseconds: 250),
@@ -316,13 +327,7 @@ class _AuthCard extends StatelessWidget {
                     elevation: 0,
                   ),
                   child: isSubmitting
-                      ? const SizedBox.square(
-                          dimension: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.2,
-                            color: Colors.white,
-                          ),
-                        )
+                      ? const EcoButtonLoader()
                       : Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [

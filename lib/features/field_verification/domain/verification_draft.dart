@@ -15,7 +15,8 @@ extension AnalysisModeX on AnalysisMode {
 
   String get blurb => switch (this) {
     AnalysisMode.manual => 'Record what you observe at the plant yourself',
-    AnalysisMode.automatic => 'Not available yet — no analysis service connected',
+    AnalysisMode.automatic =>
+      'Not available yet — no analysis service connected',
   };
 
   bool get isAvailable => this == AnalysisMode.manual;
@@ -24,7 +25,13 @@ extension AnalysisModeX on AnalysisMode {
 /// Everything the wizard has collected so far.
 ///
 class VerificationDraft {
-  const VerificationDraft({this.status, this.dbhCm, this.crownDimensionCm, this.notes = '', this.photoPaths = const []});
+  const VerificationDraft({
+    this.status,
+    this.dbhCm,
+    this.crownDimensionCm,
+    this.notes = '',
+    this.photoPaths = const [],
+  });
 
   final PlantStatus? status;
   final double? dbhCm;
@@ -53,7 +60,9 @@ class VerificationDraft {
   }) => VerificationDraft(
     status: status ?? this.status,
     dbhCm: clearMeasurements ? null : dbhCm ?? this.dbhCm,
-    crownDimensionCm: clearMeasurements ? null : crownDimensionCm ?? this.crownDimensionCm,
+    crownDimensionCm: clearMeasurements
+        ? null
+        : crownDimensionCm ?? this.crownDimensionCm,
     notes: notes ?? this.notes,
     photoPaths: clearPhotos ? const [] : photoPaths ?? this.photoPaths,
   );
@@ -79,7 +88,9 @@ class VerificationDraft {
     dbhCm: status!.requiresMeasurements ? dbhCm : null,
     crownDimensionCm: status!.requiresMeasurements ? crownDimensionCm : null,
     notes: notes.trim().isEmpty ? null : notes.trim(),
-    photoEvidence: status!.requiresEvidence ? List.unmodifiable(photoPaths) : const [],
+    photoEvidence: status!.requiresEvidence
+        ? List.unmodifiable(photoPaths)
+        : const [],
     verifiedByStaffId: verifiedByStaffId,
     verifiedAt: verifiedAt ?? DateTime.now(),
     distanceFromTreeMeters: distanceFromTreeMeters,

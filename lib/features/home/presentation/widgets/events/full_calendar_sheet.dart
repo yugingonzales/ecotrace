@@ -9,11 +9,13 @@ class FullCalendarSheet extends StatefulWidget {
   const FullCalendarSheet({
     super.key,
     required this.daysWithEvents,
+    this.endDaysWithEvents = const [],
     required this.selectedDay,
     required this.onDaySelected,
   });
 
   final List<DateTime> daysWithEvents;
+  final List<DateTime> endDaysWithEvents;
   final DateTime selectedDay;
   final ValueChanged<DateTime> onDaySelected;
 
@@ -22,8 +24,7 @@ class FullCalendarSheet extends StatefulWidget {
 }
 
 class _FullCalendarSheetState extends State<FullCalendarSheet> {
-  late DateTime _visibleMonth =
-      AppDate.firstOfMonth(widget.selectedDay);
+  late DateTime _visibleMonth = AppDate.firstOfMonth(widget.selectedDay);
 
   void _shiftMonth(int delta) {
     setState(() {
@@ -106,24 +107,18 @@ class _FullCalendarSheetState extends State<FullCalendarSheet> {
             onPressed: () => _shiftMonth(-1),
             icon: const Icon(Icons.chevron_left_rounded),
             tooltip: 'Previous month',
-            style: IconButton.styleFrom(
-              foregroundColor: EcoTraceColors.muted,
-            ),
+            style: IconButton.styleFrom(foregroundColor: EcoTraceColors.muted),
           ),
           IconButton(
             onPressed: () => _shiftMonth(1),
             icon: const Icon(Icons.chevron_right_rounded),
             tooltip: 'Next month',
-            style: IconButton.styleFrom(
-              foregroundColor: EcoTraceColors.muted,
-            ),
+            style: IconButton.styleFrom(foregroundColor: EcoTraceColors.muted),
           ),
           IconButton(
             onPressed: () => Navigator.pop(context),
             icon: const Icon(Icons.close_rounded),
-            style: IconButton.styleFrom(
-              foregroundColor: EcoTraceColors.muted,
-            ),
+            style: IconButton.styleFrom(foregroundColor: EcoTraceColors.muted),
           ),
         ],
       ),
@@ -159,29 +154,37 @@ class _FullCalendarSheetState extends State<FullCalendarSheet> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
-      child: Row(
+      child: Wrap(
+        spacing: 14,
+        runSpacing: 8,
         children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: const BoxDecoration(
-              color: EcoTraceColors.lemon,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 8),
-          const Text(
-            'Days with scheduled activities',
-            style: TextStyle(
-              color: EcoTraceColors.muted,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          _legendItem(EcoTraceColors.forest, 'Start'),
+          _legendItem(const Color(0xFFF59E0B), 'End date'),
+          _legendItem(EcoTraceColors.lemon, 'Selected'),
         ],
       ),
     );
   }
+
+  Widget _legendItem(Color color, String label) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      ),
+      const SizedBox(width: 5),
+      Text(
+        label,
+        style: const TextStyle(
+          color: EcoTraceColors.muted,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    ],
+  );
 
   Widget _buildCalendarGrid() {
     final today = AppDate.dayOf(DateTime.now());
@@ -193,6 +196,7 @@ class _FullCalendarSheetState extends State<FullCalendarSheet> {
     final leadingBlanks = DateTime(year, month, 1).weekday - 1;
     final weeksNeeded = ((monthLength + leadingBlanks) / 7).ceil();
     final eventDays = widget.daysWithEvents.map(AppDate.dayOf).toSet();
+    final endDays = widget.endDaysWithEvents.map(AppDate.dayOf).toSet();
 
     final List<Widget> weeks = [];
     var currentDay = 1;
@@ -208,6 +212,7 @@ class _FullCalendarSheetState extends State<FullCalendarSheet> {
         } else {
           final day = DateTime(year, month, currentDay);
           final hasEvents = eventDays.contains(day);
+          final hasEnd = endDays.contains(day);
           final isSelected = AppDate.isSameDay(day, widget.selectedDay);
           final isToday = AppDate.isSameDay(day, today);
           final label = '$currentDay';
@@ -227,8 +232,8 @@ class _FullCalendarSheetState extends State<FullCalendarSheet> {
                     color: isSelected
                         ? EcoTraceColors.forest
                         : (isToday
-                            ? EcoTraceColors.lemon.withValues(alpha: .2)
-                            : Colors.transparent),
+                              ? EcoTraceColors.lemon.withValues(alpha: .2)
+                              : Colors.transparent),
                     borderRadius: BorderRadius.circular(12),
                     border: isToday && !isSelected
                         ? Border.all(color: EcoTraceColors.lemon, width: 1.5)
@@ -245,26 +250,44 @@ class _FullCalendarSheetState extends State<FullCalendarSheet> {
                             color: isSelected
                                 ? Colors.white
                                 : (isToday
-                                    ? EcoTraceColors.forest
-                                    : const Color(0xFF0A231C)),
+                                      ? EcoTraceColors.forest
+                                      : const Color(0xFF0A231C)),
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
                         const SizedBox(height: 4),
-                        if (hasEvents)
-                          Container(
-                            width: 4,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? EcoTraceColors.lemon
-                                  : EcoTraceColors.forest,
-                              shape: BoxShape.circle,
-                            ),
+                        if (hasEvents || hasEnd)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (hasEvents)
+                                Container(
+                                  width: 5,
+                                  height: 5,
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? EcoTraceColors.lemon
+                                        : EcoTraceColors.forest,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              if (hasEvents && hasEnd) const SizedBox(width: 3),
+                              if (hasEnd)
+                                Container(
+                                  width: 5,
+                                  height: 5,
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? Colors.white
+                                        : const Color(0xFFF59E0B),
+                                    shape: BoxShape.rectangle,
+                                  ),
+                                ),
+                            ],
                           )
                         else
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 5),
                       ],
                     ),
                   ),

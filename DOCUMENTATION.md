@@ -66,13 +66,13 @@ dark-green contrast, lemon action accents, readable form spacing.
 
 ## 2. Current status
 
-**Gates at merge time: `flutter analyze` clean · `flutter test` 71/71 green.**
+**Current gates: `flutter analyze` clean · `flutter test` 89/89 green.**
 
 | Area | State |
 |---|---|
 | Entry point | `EcoTraceApp` launches into `SplashScreen`, which transitions to the staff login screen and then to `AppShell` on submit |
 | Shell | Bottom nav with 5 slots; centre action is **"View field progress"**, not the scanner |
-| Events | Date-aware calendar (rolling strip + real month grid), collapsing strip, search, joined-only filter, participation receipt |
+| Events | Inline search (`events-search-field`), date-aware rolling strip and real month grid, collapsing strip, joined-only filter, right-aligned calendar action, multi-day start/end markers, participation receipt |
 | Map | Real `flutter_map` campus map, 23 admin trees, OSM/Esri toggle, zone+status filters, left-rail controls, OSRM road routing |
 | Verification | Mode choice → proximity gate → 4-step wizard (status, measurements, 3–5 camera photos, review) |
 | Incidents | Linked-tree form with validated selections, description, camera evidence, draft save feedback |
@@ -80,17 +80,18 @@ dark-green contrast, lemon action accents, readable form spacing.
 | Profile | State-backed `UserProfile` with editable email, home address, contact number |
 | Connectivity | Three-state model — `online` requires transport **and** a passing HTTP probe |
 | Field progress | Theme-native dashboard over a static preview dataset |
-| Sync dashboard | Static literals only |
+| Sync dashboard | Static preview records with refresh feedback; transport remains pending |
 
-### Test suite — 71 tests
+### Test suite — 89 tests
 
 | File | Tests |
 |---|---|
-| `test/widget_test.dart` | 28 |
+| `test/widget_test.dart` | 31 |
 | `test/features/field_verification/verification_test.dart` | 22 |
 | `test/features/field_verification/verification_wizard_test.dart` | 9 |
 | `test/features/field_verification/start_verification_flow_test.dart` | 6 |
 | `test/features/monitoring_progress/monitoring_progress_test.dart` | 6 |
+| `test/core/loading/loading_views_test.dart` | 9 |
 
 ### Dependencies
 
@@ -691,6 +692,8 @@ number recorded in any log.
 | 2026-10-02 | Auth interface rebuild | Rebuilt `staff_auth_screen.dart` presentation from scratch while retaining controllers, validators, password visibility state, staff-type selector, login/sign-up toggle, submit flow and the `AppShell` replacement route. Replaced the heavy animated/glass canopy with a static repaint-bounded backdrop, responsive scrollable form, constrained desktop width, lighter field/card styling and keyboard-safe bottom padding. Fixed a compact 320 px overflow by scaling the brand row to its available width. No Flutter app was connected for hot reload; DTD discovery completed with no connected apps | analyze ✅ · 67/67 ✅ |
 | 2026-10-03 | **Documentation consolidation** | Merged 10 documents into this file. Re-verified every load-bearing claim against the working tree instead of copying it forward: 70 tests (27+6+22+9+6) confirmed by per-file count, 69 Dart files in `lib/`, the 5 manifest permissions, `pubspec.yaml` dependencies, `enforcementEnabled == false` at `verification_proximity.dart:110`, `home: const AppShell()` in `main.dart`, and the three-state `ConnectionStatus`. Deleted the 10 merged sources; kept `README.md` and binding `ai_instructions.md`. Content that had gone stale was corrected rather than carried forward — see §12 | analyze ✅ · 70/70 ✅ |
 | 2026-10-03 | Launch flow: login restored | `home:` in `main.dart` was still `AppShell`, a launch bypass that had been requested for the 2026-10-02 overhaul and committed there. The auth feature itself had never been deleted — `staff_auth_screen.dart` (688 lines) and the splash→login and login→shell routes were all intact, so the single line was the whole defect. Pointed `home:` back at `SplashScreen` and replaced the test that had locked the bypass in (`launches directly into the main application shell`) with two that assert the real chain: splash→login, and login→shell. Added `kSplashSequenceDuration` to the splash so the test outruns the staged 150+200+650+300+950 ms choreography from one named constant instead of a hardcoded guess, with an `assert` tying it to those delays. The stale `not in the launch path` / `splash/login bypassed` claims in §3 and §4.1 were corrected; the 2026-10-02 log row was left as the historical record | analyze ✅ · 71/71 ✅ |
+| 2026-10-04 | Async feedback pass | Added shared Material 3 loading primitives (`EcoButtonLoader`, safe blocking overlay, determinate upload progress, and reduced-motion skeletons) with focused widget coverage. Wired authentication, camera evidence, incident saving, verification upload progress, GPS/proximity, OSRM routing, sync refresh, and pull-to-refresh flows for visible busy/error/completion feedback. Fixed the overlay to be safe in both `Stack` and normal body contexts. Re-verified the full suite at 88 tests and kept analysis clean | analyze ✅ · 88/88 ✅ |
+| 2026-10-04 | Events interface update | Added the persistent keyed inline search field (`events-search-field`), moved the calendar action to the right side of the Events header, replaced the former filter action with the bottom-left **Joined activities** toggle, and added optional `LocalEvent.endDate` support. The full calendar now distinguishes activity starts with circular markers and activity ends with square markers, with a seeded multi-day event for validation. Updated widget coverage for inline search and keyed leave confirmation input | analyze ✅ · 89/89 ✅ |
 
 ---
 

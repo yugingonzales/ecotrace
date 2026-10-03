@@ -10,6 +10,7 @@ import '../../widgets/events/event_card.dart';
 import '../../widgets/events/event_details_sheet.dart';
 import '../../widgets/events/full_calendar_sheet.dart';
 import '../../widgets/events/participation_receipt.dart';
+import '../../widgets/events/leave_confirmation_card.dart';
 import '../../widgets/shared/section_title.dart';
 import '../../widgets/shared/top_bar.dart';
 
@@ -78,6 +79,13 @@ class _EventsScreenState extends State<EventsScreen>
       _events.map((event) => AppDate.dayOf(event.date)).toSet().toList()
         ..sort();
 
+  List<DateTime> get _eventEndDays =>
+      _events
+          .map((event) => AppDate.dayOf(event.effectiveEndDate))
+          .toSet()
+          .toList()
+        ..sort();
+
   List<LocalEvent> get _eventsForSelectedDay => _events
       .where((event) => AppDate.isSameDay(event.date, _selectedDay))
       .toList();
@@ -128,8 +136,8 @@ class _EventsScreenState extends State<EventsScreen>
   /// Glides the strip so the given day is centered in the visible viewport.
   void _scrollToDay(DateTime day) {
     if (!_stripController.hasClients) return;
-    const itemWidth = 56.0;
-    const spacing = 4.0;
+    const itemWidth = 52.0;
+    const spacing = 3.0;
     final viewport = _stripController.position.viewportDimension;
     final maxExtent = _stripController.position.maxScrollExtent;
     // The strip window starts today, so a day's offset within it is the same
@@ -160,119 +168,13 @@ class _EventsScreenState extends State<EventsScreen>
       backgroundColor: Colors.transparent,
       builder: (context) => FullCalendarSheet(
         daysWithEvents: _daysWithEvents,
+        endDaysWithEvents: _eventEndDays,
         selectedDay: _selectedDay,
         onDaySelected: (day) {
           _selectDay(day);
         },
       ),
     );
-  }
-
-  Future<void> _openSearch() async {
-    final controller = TextEditingController(text: _query);
-    final value = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Search field activities'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'Search title or location',
-          ),
-          onSubmitted: (value) => Navigator.pop(dialogContext, value),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, controller.text),
-            child: const Text('Search'),
-          ),
-        ],
-      ),
-    );
-    if (value != null && mounted) setState(() => _query = value.trim());
-  }
-
-  Future<void> _openFilter() async {
-    final joinedOnly = await showModalBottomSheet<bool>(
-      context: context,
-      backgroundColor: EcoTraceColors.canvas,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFD5DFD8),
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Filter activities',
-                    style: TextStyle(
-                      color: Color(0xFF0A231C),
-                      fontSize: 21,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  CheckboxListTile(
-                    value: _joinedOnly,
-                    onChanged: (value) {
-                      Navigator.pop(sheetContext, value ?? false);
-                    },
-                    title: const Text(
-                      'Show only joined',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    contentPadding: EdgeInsets.zero,
-                    controlAffinity: ListTileControlAffinity.leading,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(sheetContext),
-                        child: const Text('Cancel'),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton(
-                        onPressed: () =>
-                            Navigator.pop(sheetContext, _joinedOnly),
-                        child: const Text('Apply'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (joinedOnly != null && mounted) {
-      setState(() => _joinedOnly = joinedOnly);
-    }
   }
 
   /// Collapses the calendar strip while the user scrolls further down the
@@ -309,7 +211,11 @@ class _EventsScreenState extends State<EventsScreen>
   ///
   Future<void> _requestParticipation(LocalEvent event) async {
     if (_joinedEvents.contains(event.id)) {
+      final confirmed = await _confirmLeave(event);
+      if (!confirmed || !mounted) return;
+
       setState(() => _joinedEvents.remove(event.id));
+      await showParticipationReceipt(context, event, leaving: true);
       return;
     }
 
@@ -320,48 +226,37 @@ class _EventsScreenState extends State<EventsScreen>
     await showParticipationReceipt(context, event);
   }
 
+  Future<bool> _confirmLeave(LocalEvent event) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierColor: const Color(0x990A231C),
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: LeaveConfirmationCard(
+          event: event,
+          onCancel: () => Navigator.pop(dialogContext, false),
+          onConfirm: () => Navigator.pop(dialogContext, true),
+        ),
+      ),
+    );
+    return confirmed ?? false;
+  }
+
   /// Asks the user to confirm a check-in before it is recorded, summarising
   /// the event's title, time and location. Returns `false` if cancelled.
   Future<bool> _confirmParticipation(LocalEvent event) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: EcoTraceColors.canvas,
-        title: const Text('Confirm participation'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'You are about to join this field activity. A participation pass '
-              'will be issued on confirmation.',
-            ),
-            const SizedBox(height: 16),
-            _ConfirmationDetail(
-              icon: Icons.forest_outlined,
-              text: event.title,
-              emphasis: true,
-            ),
-            _ConfirmationDetail(
-              icon: Icons.schedule_rounded,
-              text: '${AppDate.scheduleHeading(event.date)} · ${event.time}',
-            ),
-            _ConfirmationDetail(
-              icon: Icons.location_on_outlined,
-              text: event.location,
-            ),
-          ],
+      barrierColor: const Color(0x990A231C),
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: _JoinConfirmationCard(
+          event: event,
+          onCancel: () => Navigator.pop(dialogContext, false),
+          onConfirm: () => Navigator.pop(dialogContext, true),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Not now'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Confirm joining'),
-          ),
-        ],
       ),
     );
     return confirmed ?? false;
@@ -416,11 +311,35 @@ class _EventsScreenState extends State<EventsScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   TopBar(
-                    onSearch: _openSearch,
-                    onFilter: _openFilter,
                     onCalendar: _openFullCalendar,
+                    showSearch: false,
+                    showFilter: false,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 40,
+                    child: TextField(
+                      key: const Key('events-search-field'),
+                      onChanged: (value) =>
+                          setState(() => _query = value.trim()),
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: 'Search activities, locations…',
+                        hintStyle: const TextStyle(color: Color(0x99FFFFFF)),
+                        prefixIcon: const Icon(
+                          Icons.search_rounded,
+                          color: Colors.white70,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white12,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 2),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
@@ -446,7 +365,7 @@ class _EventsScreenState extends State<EventsScreen>
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 22,
+                                fontSize: 20,
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
@@ -496,7 +415,7 @@ class _EventsScreenState extends State<EventsScreen>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 10),
                         CalendarStrip(
                           startDay: _stripStart,
                           span: _stripSpan,
@@ -514,47 +433,232 @@ class _EventsScreenState extends State<EventsScreen>
           ),
         ),
         Expanded(
-          child: NotificationListener<ScrollNotification>(
-            onNotification: _handleListScroll,
-            child: RefreshIndicator(
-              onRefresh: _refresh,
-              color: EcoTraceColors.forest,
-              child: ListView(
-                key: const Key('events-list'),
-                controller: _listController,
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
-                children: [
-                  SectionTitle(
-                    'Schedule for '
-                    '${selectedHeading == 'Today' ? 'today' : selectedHeading.toLowerCase()}',
-                  ),
-                  if (visibleEvents.isEmpty)
-                    const EmptyEventsState()
-                  else
-                    ...visibleEvents.map(
-                      (event) => EventCard(
-                        time: event.time,
-                        title: event.title,
-                        location: event.location,
-                        description: event.description,
-                        attendeeCount:
-                            event.attendeeCount +
-                            (_joinedEvents.contains(event.id) ? 1 : 0),
-                        warm: event.warm,
-                        joined: _joinedEvents.contains(event.id),
-                        onOpen: () => _showDetails(event),
-                        onConfirm: () => _requestParticipation(event),
+          child: Stack(
+            children: [
+              NotificationListener<ScrollNotification>(
+                onNotification: _handleListScroll,
+                child: RefreshIndicator(
+                  onRefresh: _refresh,
+                  color: EcoTraceColors.forest,
+                  child: ListView(
+                    key: const Key('events-list'),
+                    controller: _listController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
+                    children: [
+                      SectionTitle(
+                        'Schedule for '
+                        '${selectedHeading == 'Today' ? 'today' : selectedHeading.toLowerCase()}',
                       ),
-                    ),
-                ],
+                      if (visibleEvents.isEmpty)
+                        const EmptyEventsState()
+                      else
+                        ...visibleEvents.map(
+                          (event) => EventCard(
+                            time: event.time,
+                            title: event.title,
+                            location: event.location,
+                            description: event.description,
+                            attendeeCount:
+                                event.attendeeCount +
+                                (_joinedEvents.contains(event.id) ? 1 : 0),
+                            warm: event.warm,
+                            joined: _joinedEvents.contains(event.id),
+                            onOpen: () => _showDetails(event),
+                            onConfirm: () => _requestParticipation(event),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+              Positioned(
+                left: 20,
+                bottom: 12,
+                child: FilterChip(
+                  selected: _joinedOnly,
+                  avatar: const Icon(Icons.check_circle_outline, size: 17),
+                  label: const Text('Joined activities'),
+                  onSelected: (value) => setState(() => _joinedOnly = value),
+                  selectedColor: EcoTraceColors.lemon,
+                  checkmarkColor: EcoTraceColors.forest,
+                  labelStyle: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
           ),
         ),
       ],
     );
   }
+}
+
+class _JoinConfirmationCard extends StatelessWidget {
+  const _JoinConfirmationCard({
+    required this.event,
+    required this.onCancel,
+    required this.onConfirm,
+  });
+
+  final LocalEvent event;
+  final VoidCallback onCancel;
+  final VoidCallback onConfirm;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: EcoTraceColors.canvas,
+    borderRadius: BorderRadius.circular(26),
+    clipBehavior: Clip.antiAlias,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [EcoTraceColors.forest, EcoTraceColors.forestDeep],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: EcoTraceColors.lemon,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.volunteer_activism_rounded,
+                  color: EcoTraceColors.forestDeep,
+                  size: 27,
+                ),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'JOIN THE TEAM',
+                      style: TextStyle(
+                        color: EcoTraceColors.lemon,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Join this activity',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 21,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(22, 20, 22, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Ready to make an impact?',
+                style: TextStyle(
+                  color: Color(0xFF0A231C),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 5),
+              const Text(
+                'Your participation pass will be issued right after you confirm.',
+                style: TextStyle(
+                  color: EcoTraceColors.muted,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: EcoTraceColors.border),
+                ),
+                child: Column(
+                  children: [
+                    _ConfirmationDetail(
+                      icon: Icons.forest_outlined,
+                      text: event.title,
+                      emphasis: true,
+                    ),
+                    _ConfirmationDetail(
+                      icon: Icons.schedule_rounded,
+                      text:
+                          '${AppDate.scheduleHeading(event.date)} · ${event.time}',
+                    ),
+                    _ConfirmationDetail(
+                      icon: Icons.location_on_outlined,
+                      text: event.location,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(22, 8, 22, 20),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: onCancel,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: EcoTraceColors.forest,
+                    side: const BorderSide(color: EcoTraceColors.border),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Not now'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: FilledButton.icon(
+                  onPressed: onConfirm,
+                  icon: const Icon(Icons.check_rounded, size: 18),
+                  label: const Text('Confirm joining'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: EcoTraceColors.forest,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 /// One icon-and-text line inside the participation confirmation dialog.

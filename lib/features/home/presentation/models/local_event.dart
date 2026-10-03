@@ -7,6 +7,7 @@ class LocalEvent {
     required this.location,
     required this.description,
     required this.attendeeCount,
+    this.endDate,
     this.warm = false,
   });
 
@@ -19,5 +20,16 @@ class LocalEvent {
   final String location;
   final String description;
   final int attendeeCount;
+
+  /// The final day of the activity. A missing value means the activity is
+  /// scheduled for one day only.
+  final DateTime? endDate;
+
+  DateTime get effectiveEndDate => endDate ?? date;
+  bool get spansMultipleDays =>
+      effectiveEndDate.year != date.year ||
+      effectiveEndDate.month != date.month ||
+      effectiveEndDate.day != date.day;
+
   final bool warm;
 }

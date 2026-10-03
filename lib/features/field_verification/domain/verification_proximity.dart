@@ -41,13 +41,14 @@ class ProximityResult {
 /// Supplies the device position to the proximity gate.
 ///
 abstract class PositionSource {
-  Future<ProximityResult> distanceTo({required double lat, required double lng});
+  Future<ProximityResult> distanceTo({
+    required double lat,
+    required double lng,
+  });
 }
 
 class GeolocatorPositionSource implements PositionSource {
-  GeolocatorPositionSource({
-    this.fixTimeout = const Duration(seconds: 15),
-  });
+  GeolocatorPositionSource({this.fixTimeout = const Duration(seconds: 15)});
 
   final Duration fixTimeout;
 
@@ -117,10 +118,7 @@ class VerificationProximity {
   /// Within range when the distance fits inside the allowance, the allowance
   /// being the radius widened by the fix's own reported error.
   ///
-  static bool isAcceptable({
-    required double meters,
-    required double accuracy,
-  }) {
+  static bool isAcceptable({required double meters, required double accuracy}) {
     final allowance = maxDistanceMeters + accuracy;
     return meters <= allowance && accuracy <= maxAccuracyToleranceMeters;
   }
