@@ -41,7 +41,7 @@ class NavItem extends StatelessWidget {
               children: [
                 Icon(
                   icon,
-                  size: compact ? 25 : 28,
+                  size: compact ? 22 : 28,
                   color: active ? EcoTraceColors.forest : EcoTraceColors.muted,
                 ),
                 if (badge != null)
@@ -69,12 +69,14 @@ class NavItem extends StatelessWidget {
                   ),
               ],
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 1),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: active ? EcoTraceColors.forest : EcoTraceColors.muted,
-                fontSize: compact ? 10 : 12,
+                fontSize: compact ? 9 : 12,
                 fontWeight: FontWeight.w700,
               ),
             ),

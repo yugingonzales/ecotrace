@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../monitoring_progress/presentation/monitoring_progress_screen.dart';
+import 'models/local_event.dart';
 import 'screens/alerts/alerts_screen.dart';
+import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/events/events_screen.dart';
 import 'screens/map/map_screen.dart';
 import 'screens/profile/profile_screen.dart';
@@ -17,15 +18,32 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _index = 0;
+  Set<String> _joinedEventIds = <String>{};
+
+  void _setJoinedEventIds(Set<String> ids) {
+    setState(() => _joinedEventIds = ids);
+  }
+
+  void _leaveFromDashboard(LocalEvent event) {
+    final next = {..._joinedEventIds}..remove(event.id);
+    _setJoinedEventIds(next);
+  }
 
   @override
   Widget build(BuildContext context) {
     final pages = <Widget>[
-      const EventsScreen(),
+      EventsScreen(
+        joinedEventIds: _joinedEventIds,
+        onJoinedEventsChanged: _setJoinedEventIds,
+      ),
       _LazyTab(active: _index == 1, builder: (context) => const MapScreen()),
-      const SizedBox.shrink(),
       const AlertsScreen(),
       const ProfileScreen(),
+      DashboardScreen(
+        joinedEventIds: _joinedEventIds,
+        onLeave: _leaveFromDashboard,
+        onMap: () => setState(() => _index = 1),
+      ),
     ];
     return Scaffold(
       backgroundColor: EcoTraceColors.canvas,
@@ -33,11 +51,7 @@ class _AppShellState extends State<AppShell> {
       bottomNavigationBar: BottomNavigation(
         selectedIndex: _index,
         onSelected: (value) => setState(() => _index = value),
-        onProgress: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => const MonitoringProgressScreen(),
-          ),
-        ),
+        onProgress: () => setState(() => _index = 4),
       ),
     );
   }

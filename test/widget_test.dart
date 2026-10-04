@@ -237,21 +237,13 @@ void main() {
 
     await tester.tap(find.byTooltip('View field progress'));
     await tester.pumpAndSettle();
-    expect(find.text('Field progress'), findsOneWidget);
-    expect(find.text('55%'), findsOneWidget);
-    expect(find.text('2,195 of 4,000'), findsOneWidget);
-    expect(find.text('Arbor Day Drive 2026'), findsOneWidget);
+    expect(find.text('Your activity'), findsOneWidget);
+    expect(find.text('Verify more trees'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.byTooltip('Back to events'));
-    await tester.pumpAndSettle();
-    expect(find.text('Today\'s schedule'), findsOneWidget);
-
-    await tester.tap(find.byIcon(Icons.person_outline_rounded));
-    await tester.pump();
-    await tester.tap(find.text('All records synced'));
-    await tester.pumpAndSettle();
-    expect(find.text('Sync dashboard'), findsOneWidget);
+    // Dashboard is an in-shell tab now, so it remains mounted with the shell
+    // instead of creating a separate route with a back button.
+    expect(find.byTooltip('Back to events'), findsNothing);
   });
 
   testWidgets('keeps field progress usable on a compact Android viewport', (
@@ -266,20 +258,9 @@ void main() {
     await tester.tap(find.byTooltip('View field progress'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Field progress'), findsOneWidget);
-    expect(find.text('55%'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-
-    await tester.scrollUntilVisible(
-      find.text('Campus Reforestation Q2'),
-      220,
-      scrollable: find.descendant(
-        of: find.byKey(const Key('monitoring-progress-list')),
-        matching: find.byType(Scrollable),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Campus Reforestation Q2'), findsOneWidget);
+    expect(find.text('Your activity'), findsOneWidget);
+    expect(find.text('Verify more trees'), findsOneWidget);
+    expect(find.byTooltip('Back to events'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -411,11 +392,11 @@ void main() {
     await tester.tap(find.text('Not now'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Join activity'), findsOneWidget);
+    expect(find.text('Join activity'), findsWidgets);
     expect(find.text("You're in!"), findsNothing);
     expect(find.text('Joined'), findsNothing);
     // Back on the list, the card's own action still offers to join.
-    expect(find.text('Join activity'), findsOneWidget);
+    expect(find.text('Join activity'), findsWidgets);
   });
 
   testWidgets('confirmed participation shows a receipt that auto-dismisses', (

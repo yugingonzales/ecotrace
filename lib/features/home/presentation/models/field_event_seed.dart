@@ -21,6 +21,8 @@ List<LocalEvent> buildFieldEventSeed({DateTime? now}) {
       location: 'Sector 4 Reforestation Zone',
       description: 'Field tagging mission for native tree saplings. Bring your mobile tag verification app logged in.',
       attendeeCount: 18,
+      targetTrees: 225,
+      verifiedTrees: 5,
       endDate: on(1),
     ),
     LocalEvent(
@@ -31,6 +33,8 @@ List<LocalEvent> buildFieldEventSeed({DateTime? now}) {
       location: 'North Quadrant Field Station',
       description: 'Canopy inspection and growth rate measurements for assigned monitoring teams.',
       attendeeCount: 12,
+      targetTrees: 120,
+      verifiedTrees: 0,
       warm: true,
     ),
     LocalEvent(
@@ -41,6 +45,8 @@ List<LocalEvent> buildFieldEventSeed({DateTime? now}) {
       location: 'EcoTrace Field Office',
       description: 'Review returned audit feedback and resolve tree records that need a second verification pass.',
       attendeeCount: 7,
+      targetTrees: 80,
+      verifiedTrees: 12,
     ),
     LocalEvent(
       id: 'canopy-check',
@@ -50,6 +56,8 @@ List<LocalEvent> buildFieldEventSeed({DateTime? now}) {
       location: 'North Quadrant Field Station',
       description: 'Follow-up measurements for trees flagged as at risk in the latest audit cycle.',
       attendeeCount: 9,
+      targetTrees: 100,
+      verifiedTrees: 0,
       warm: true,
     ),
   ];

@@ -61,7 +61,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
       children: [
         Container(
           width: double.infinity,
-          color: EcoTraceColors.forest,
+          decoration: EcoTraceHeader.decoration,
           child: SafeArea(
             bottom: false,
             child: Padding(

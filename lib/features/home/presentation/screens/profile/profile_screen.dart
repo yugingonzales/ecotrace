@@ -76,7 +76,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       children: [
         Container(
-          color: EcoTraceColors.forest,
+          decoration: EcoTraceHeader.decoration,
           child: SafeArea(
             bottom: false,
             child: Padding(

@@ -22,6 +22,16 @@ abstract final class EcoTraceColors {
 abstract final class EcoTraceHeader {
   /// Gap between the status bar and the header's first row.
   static const double topPadding = 0;
+
+  /// Shared rounded header surface used by the non-map tabs.
+  static const BoxDecoration decoration = BoxDecoration(
+    gradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFF0D6E4F), Color(0xFF05291D)],
+    ),
+    borderRadius: BorderRadius.vertical(bottom: Radius.circular(26)),
+  );
 }
 
 abstract final class EcoTraceTheme {

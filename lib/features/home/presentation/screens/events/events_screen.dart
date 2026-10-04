@@ -15,7 +15,16 @@ import '../../widgets/shared/section_title.dart';
 import '../../widgets/shared/top_bar.dart';
 
 class EventsScreen extends StatefulWidget {
-  const EventsScreen({super.key});
+  const EventsScreen({
+    super.key,
+    this.joinedEventIds = const <String>{},
+    this.onJoinedEventsChanged = _ignoreJoinedEvents,
+  });
+
+  final Set<String> joinedEventIds;
+  final ValueChanged<Set<String>> onJoinedEventsChanged;
+
+  static void _ignoreJoinedEvents(Set<String> _) {}
 
   @override
   State<EventsScreen> createState() => _EventsScreenState();
@@ -71,8 +80,8 @@ class _EventsScreenState extends State<EventsScreen>
   double _lastListPixels = 0;
 
   String _query = '';
-  bool _joinedOnly = false;
-  final _joinedEvents = <String>{};
+
+  Set<String> get _joinedEvents => widget.joinedEventIds;
 
   /// Distinct days that actually have activities, as real dates.
   List<DateTime> get _daysWithEvents =>
@@ -90,16 +99,14 @@ class _EventsScreenState extends State<EventsScreen>
       .where((event) => AppDate.isSameDay(event.date, _selectedDay))
       .toList();
 
-  /// Events scheduled on the selected day that also satisfy the active
-  /// search and joined-only filters.
+  /// Events scheduled on the selected day that satisfy the active search.
   List<LocalEvent> get _visibleEvents {
     return _events.where((event) {
       final matchesDay = AppDate.isSameDay(event.date, _selectedDay);
       final matchesQuery =
           _query.isEmpty ||
           _searchText[event.id]!.contains(_query.toLowerCase());
-      final matchesJoined = !_joinedOnly || _joinedEvents.contains(event.id);
-      return matchesDay && matchesQuery && matchesJoined;
+      return matchesDay && matchesQuery;
     }).toList();
   }
 
@@ -161,22 +168,6 @@ class _EventsScreenState extends State<EventsScreen>
     await Future<void>.delayed(const Duration(milliseconds: 600));
   }
 
-  Future<void> _openFullCalendar() async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => FullCalendarSheet(
-        daysWithEvents: _daysWithEvents,
-        endDaysWithEvents: _eventEndDays,
-        selectedDay: _selectedDay,
-        onDaySelected: (day) {
-          _selectDay(day);
-        },
-      ),
-    );
-  }
-
   /// Collapses the calendar strip while the user scrolls further down the
   /// list, and brings it back when they reach the very top of the list.
   ///
@@ -214,7 +205,8 @@ class _EventsScreenState extends State<EventsScreen>
       final confirmed = await _confirmLeave(event);
       if (!confirmed || !mounted) return;
 
-      setState(() => _joinedEvents.remove(event.id));
+      final next = {..._joinedEvents}..remove(event.id);
+      widget.onJoinedEventsChanged(next);
       await showParticipationReceipt(context, event, leaving: true);
       return;
     }
@@ -222,7 +214,8 @@ class _EventsScreenState extends State<EventsScreen>
     final confirmed = await _confirmParticipation(event);
     if (!confirmed || !mounted) return;
 
-    setState(() => _joinedEvents.add(event.id));
+    final next = {..._joinedEvents}..add(event.id);
+    widget.onJoinedEventsChanged(next);
     await showParticipationReceipt(context, event);
   }
 
@@ -262,6 +255,20 @@ class _EventsScreenState extends State<EventsScreen>
     return confirmed ?? false;
   }
 
+  Future<void> _openFullCalendar() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => FullCalendarSheet(
+        daysWithEvents: _daysWithEvents,
+        endDaysWithEvents: _eventEndDays,
+        selectedDay: _selectedDay,
+        onDaySelected: _selectDay,
+      ),
+    );
+  }
+
   Future<void> _showDetails(LocalEvent event) async {
     final requested = await showModalBottomSheet<bool>(
       context: context,
@@ -291,20 +298,14 @@ class _EventsScreenState extends State<EventsScreen>
       children: [
         Container(
           key: const Key('events-header'),
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF0D6E4F), Color(0xFF05291D)],
-            ),
-          ),
+          decoration: EcoTraceHeader.decoration,
           child: SafeArea(
             bottom: false,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(
                 20,
                 EcoTraceHeader.topPadding,
-                20,
+                0,
                 16,
               ),
               child: Column(
@@ -312,119 +313,140 @@ class _EventsScreenState extends State<EventsScreen>
                 children: [
                   TopBar(
                     onCalendar: _openFullCalendar,
+                    center: SizedBox(
+                      height: 36,
+                      child: TextField(
+                        key: const Key('events-search-field'),
+                        onChanged: (value) =>
+                            setState(() => _query = value.trim()),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Search activities...',
+                          hintStyle: const TextStyle(
+                            color: Color(0x99FFFFFF),
+                            fontSize: 12,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            color: Colors.white70,
+                            size: 18,
+                          ),
+                          prefixIconConstraints: const BoxConstraints(
+                            minWidth: 30,
+                            maxWidth: 30,
+                          ),
+                          filled: true,
+                          fillColor: Colors.white12,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 0,
+                            horizontal: 8,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(11),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                    ),
                     showSearch: false,
                     showFilter: false,
                   ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    height: 40,
-                    child: TextField(
-                      key: const Key('events-search-field'),
-                      onChanged: (value) =>
-                          setState(() => _query = value.trim()),
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
-                      decoration: InputDecoration(
-                        hintText: 'Search activities, locations…',
-                        hintStyle: const TextStyle(color: Color(0x99FFFFFF)),
-                        prefixIcon: const Icon(
-                          Icons.search_rounded,
-                          color: Colors.white70,
-                        ),
-                        filled: true,
-                        fillColor: Colors.white12,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 2),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'FIELD ACTIVITIES',
-                              style: TextStyle(
-                                color: EcoTraceColors.lemon,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: .5,
+                  Padding(
+                    padding: const EdgeInsets.only(right: 20),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'FIELD ACTIVITIES',
+                                style: TextStyle(
+                                  color: EcoTraceColors.lemon,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: .5,
+                                ),
                               ),
+                              SizedBox(height: 2),
+                              Text(
+                                selectedHeading == 'Today'
+                                    ? 'Today\'s schedule'
+                                    : '$selectedHeading\'s schedule',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 132),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
                             ),
-                            SizedBox(height: 2),
-                            Text(
-                              selectedHeading == 'Today'
-                                  ? 'Today\'s schedule'
-                                  : '$selectedHeading\'s schedule',
-                              maxLines: 2,
+                            decoration: BoxDecoration(
+                              color: const Color(0x33A3E635),
+                              border: Border.all(
+                                color: const Color(0x66A3E635),
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '$dayEventCount ${dayEventCount == 1 ? 'activity' : 'activities'}',
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.w900,
+                                color: Color(0xFFA3E635),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 132),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
                           ),
-                          decoration: BoxDecoration(
-                            color: const Color(0x33A3E635),
-                            border: Border.all(color: const Color(0x66A3E635)),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '$dayEventCount ${dayEventCount == 1 ? 'activity' : 'activities'}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xFFA3E635),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  //
-                  AnimatedBuilder(
-                    animation: _stripCollapse,
-                    builder: (context, strip) => ClipRect(
-                      key: const Key('events-calendar-collapse'),
-                      child: Align(
-                        heightFactor: _stripCollapse.value,
-                        alignment: Alignment.topCenter,
-                        child: Opacity(
-                          opacity: _stripCollapse.value.clamp(0.0, 1.0),
-                          child: strip,
-                        ),
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SizedBox(height: 10),
-                        CalendarStrip(
-                          startDay: _stripStart,
-                          span: _stripSpan,
-                          selectedDay: _selectedDay,
-                          onSelected: _selectDay,
-                          daysWithEvents: _daysWithEvents,
-                          scrollController: _stripController,
                         ),
                       ],
+                    ),
+                  ),
+                  //
+                  Padding(
+                    padding: const EdgeInsets.only(right: 20),
+                    child: AnimatedBuilder(
+                      animation: _stripCollapse,
+                      builder: (context, strip) => ClipRect(
+                        key: const Key('events-calendar-collapse'),
+                        child: Align(
+                          heightFactor: _stripCollapse.value,
+                          alignment: Alignment.topCenter,
+                          child: Opacity(
+                            opacity: _stripCollapse.value.clamp(0.0, 1.0),
+                            child: strip,
+                          ),
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(height: 10),
+                          CalendarStrip(
+                            startDay: _stripStart,
+                            span: _stripSpan,
+                            selectedDay: _selectedDay,
+                            onSelected: _selectDay,
+                            daysWithEvents: _daysWithEvents,
+                            scrollController: _stripController,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -470,19 +492,6 @@ class _EventsScreenState extends State<EventsScreen>
                         ),
                     ],
                   ),
-                ),
-              ),
-              Positioned(
-                left: 20,
-                bottom: 12,
-                child: FilterChip(
-                  selected: _joinedOnly,
-                  avatar: const Icon(Icons.check_circle_outline, size: 17),
-                  label: const Text('Joined activities'),
-                  onSelected: (value) => setState(() => _joinedOnly = value),
-                  selectedColor: EcoTraceColors.lemon,
-                  checkmarkColor: EcoTraceColors.forest,
-                  labelStyle: const TextStyle(fontWeight: FontWeight.w800),
                 ),
               ),
             ],

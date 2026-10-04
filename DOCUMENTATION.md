@@ -71,7 +71,7 @@ dark-green contrast, lemon action accents, readable form spacing.
 | Area | State |
 |---|---|
 | Entry point | `EcoTraceApp` launches into `SplashScreen`, which transitions to the staff login screen and then to `AppShell` on submit |
-| Shell | Bottom nav with 5 slots; centre action is **"View field progress"**, not the scanner |
+| Shell | Bottom nav with 5 slots; centre action is **"View field progress"**, not the scanner; dashboard actions remain in-shell and the dashboard profile icon is intentionally omitted |
 | Events | Inline search (`events-search-field`), date-aware rolling strip and real month grid, collapsing strip, joined-only filter, right-aligned calendar action, multi-day start/end markers, participation receipt |
 | Map | Real `flutter_map` campus map, 23 admin trees, OSM/Esri toggle, zone+status filters, left-rail controls, OSRM road routing |
 | Verification | Mode choice → proximity gate → 4-step wizard (status, measurements, 3–5 camera photos, review) |
@@ -79,7 +79,7 @@ dark-green contrast, lemon action accents, readable form spacing.
 | Alerts | Static list; tabs now genuinely filter |
 | Profile | State-backed `UserProfile` with editable email, home address, contact number |
 | Connectivity | Three-state model — `online` requires transport **and** a passing HTTP probe |
-| Field progress | Theme-native dashboard over a static preview dataset |
+| Field progress | Theme-native dashboard with user quota, verified trees, event-wide target/progress/participant metrics, and a map handoff for verifying more trees |
 | Sync dashboard | Static preview records with refresh feedback; transport remains pending |
 
 ### Test suite — 89 tests

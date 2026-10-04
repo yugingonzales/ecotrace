@@ -133,14 +133,23 @@ class _LeaveConfirmationCardState extends State<LeaveConfirmationCard> {
             child: Row(
               children: [
                 Expanded(
-                  child: OutlinedButton(
+                  child: FilledButton.icon(
                     onPressed: widget.onCancel,
-                    child: const Text('Keep activity'),
+                    icon: const Icon(Icons.arrow_back_rounded, size: 17),
+                    label: const Text('Keep activity'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFE5F1E9),
+                      foregroundColor: EcoTraceColors.forest,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  flex: 2,
                   child: FilledButton.icon(
                     onPressed: valid ? widget.onConfirm : null,
                     icon: const Icon(Icons.exit_to_app_rounded, size: 18),
@@ -148,6 +157,11 @@ class _LeaveConfirmationCardState extends State<LeaveConfirmationCard> {
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF7A3026),
                       foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),

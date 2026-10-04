@@ -75,7 +75,7 @@ class BottomNavigation extends StatelessWidget {
               const SizedBox(width: 4),
               Expanded(
                 child: NavItem(
-                  index: 3,
+                  index: 2,
                   icon: Icons.notifications_none_rounded,
                   label: 'Alerts',
                   badge: '2',
@@ -87,7 +87,7 @@ class BottomNavigation extends StatelessWidget {
               const SizedBox(width: 4),
               Expanded(
                 child: NavItem(
-                  index: 4,
+                  index: 3,
                   icon: Icons.person_outline_rounded,
                   label: 'Profile',
                   selectedIndex: selectedIndex,

@@ -66,9 +66,7 @@ class MapHeader extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
-                    isSatellite
-                        ? Icons.satellite_alt_rounded
-                        : Icons.layers_outlined,
+                    isSatellite ? Icons.satellite_alt_rounded : Icons.eco,
                     color: isSatellite
                         ? const Color(0xFF1D4ED8)
                         : EcoTraceColors.forest,

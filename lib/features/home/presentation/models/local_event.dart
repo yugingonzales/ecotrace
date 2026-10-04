@@ -8,6 +8,8 @@ class LocalEvent {
     required this.description,
     required this.attendeeCount,
     this.endDate,
+    this.targetTrees = 0,
+    this.verifiedTrees = 0,
     this.warm = false,
   });
 
@@ -20,6 +22,13 @@ class LocalEvent {
   final String location;
   final String description;
   final int attendeeCount;
+
+  /// Total trees assigned to this event. This is optional for legacy schedule
+  /// entries and is supplied by the event seed/API when available.
+  final int targetTrees;
+
+  /// Trees verified by the current staff member for this event.
+  final int verifiedTrees;
 
   /// The final day of the activity. A missing value means the activity is
   /// scheduled for one day only.

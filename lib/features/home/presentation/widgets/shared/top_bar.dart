@@ -8,6 +8,7 @@ class TopBar extends StatelessWidget {
     this.onSearch,
     this.onFilter,
     this.onCalendar,
+    this.center,
     this.showSearch = true,
     this.showFilter = true,
     this.edgeOffset = 4,
@@ -16,46 +17,62 @@ class TopBar extends StatelessWidget {
   final VoidCallback? onSearch;
   final VoidCallback? onFilter;
   final VoidCallback? onCalendar;
+  final Widget? center;
   final bool showSearch;
   final bool showFilter;
-
-  /// Pushes the action buttons closer to the right edge of the screen
-  /// (beyond the header's standard 20px padding).
+  // Retained for compatibility with other headers; actions stay within the
+  // header bounds so the right margin remains balanced.
   final double edgeOffset;
 
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      Container(
-        width: 34,
-        height: 34,
-        decoration: BoxDecoration(
-          color: EcoTraceColors.lemon,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Icon(
-          Icons.layers_outlined,
-          color: EcoTraceColors.forest,
-          size: 20,
-        ),
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: EcoTraceColors.lemon,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.eco,
+              color: EcoTraceColors.forest,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 10),
+          const Text(
+            'EcoTrace',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
-      const SizedBox(width: 10),
-      const Flexible(
-        child: Text(
-          'EcoTrace',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
+      if (center != null) ...[
+        const SizedBox(width: 12),
+        Expanded(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 0),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: center!,
+            ),
           ),
         ),
-      ),
-      const Spacer(),
-      Transform.translate(
-        offset: Offset(edgeOffset, 0),
-        child: Row(
+        if (showSearch || onCalendar != null || showFilter)
+          const SizedBox(width: 4),
+      ] else
+        const Spacer(),
+      if (showSearch || onCalendar != null || showFilter)
+        Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (showSearch) ...[
@@ -82,7 +99,6 @@ class TopBar extends StatelessWidget {
               ),
           ],
         ),
-      ),
     ],
   );
 
