@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/loading/loading_views.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../home/presentation/app_shell.dart';
+import '../data/auth_client.dart';
 import '../domain/monitoring_staff.dart';
 
 const double _cardRadius = 24;
@@ -36,16 +37,32 @@ class _StaffAuthScreenState extends State<StaffAuthScreen> {
   final _middleName = TextEditingController();
   final _lastName = TextEditingController();
   final _username = TextEditingController();
+  final _email = TextEditingController();
   final _password = TextEditingController();
   final _confirmation = TextEditingController();
   final ValueNotifier<bool> _obscurePassword = ValueNotifier(true);
   final ValueNotifier<StaffType> _staffType = ValueNotifier(StaffType.intern);
   final ValueNotifier<bool> _submitting = ValueNotifier(false);
   bool _loginMode = true;
+  bool _keepSignedIn = false;
 
   String? _firstNameValidator(String? value) => _required(value, 'First name');
   String? _lastNameValidator(String? value) => _required(value, 'Last name');
-  String? _usernameValidator(String? value) => _required(value, 'Username');
+
+  String? _usernameValidator(String? value) {
+    final required = _required(value, 'Username');
+    if (required != null) return required;
+    return value!.trim().length < 3
+        ? 'Username must be at least 3 characters'
+        : null;
+  }
+
+  String? _emailValidator(String? value) {
+    final required = _required(value, 'Email');
+    if (required != null) return required;
+    final emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+    return emailPattern.hasMatch(value!) ? null : 'Enter a valid email address';
+  }
 
   String? _passwordValidator(String? value) {
     final required = _required(value, 'Password');
@@ -66,12 +83,35 @@ class _StaffAuthScreenState extends State<StaffAuthScreen> {
     _middleName.dispose();
     _lastName.dispose();
     _username.dispose();
+    _email.dispose();
     _password.dispose();
     _confirmation.dispose();
     _obscurePassword.dispose();
     _staffType.dispose();
     _submitting.dispose();
     super.dispose();
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            message,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          backgroundColor: EcoTraceColors.error,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          duration: const Duration(milliseconds: 3500),
+        ),
+      );
   }
 
   /// Authenticates the officer, then enters the shell.
@@ -82,17 +122,46 @@ class _StaffAuthScreenState extends State<StaffAuthScreen> {
     if (_submitting.value) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
     _submitting.value = true;
-    await _authenticate();
-    if (!mounted) return;
-    _submitting.value = false;
-    if (!mounted) return;
-    Navigator.of(context).pushReplacement(_smoothRoute(const AppShell()));
+
+    try {
+      final response = await _authenticate();
+      if (_loginMode && _keepSignedIn) {
+        await AuthSession.save(response);
+      } else if (_loginMode) {
+        await AuthSession.clear();
+      }
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(_smoothRoute(const AppShell()));
+    } on AuthException catch (e) {
+      _showError(e.message);
+    } catch (e) {
+      _showError('An unexpected error occurred. Please try again.');
+    } finally {
+      if (mounted) _submitting.value = false;
+    }
   }
 
-  /// Stands in for the credentials round-trip. A real implementation awaits the
-  /// API call here and surfaces a failure message before `_submit` resets.
-  Future<void> _authenticate() =>
-      Future<void>.delayed(const Duration(milliseconds: 900));
+  /// Calls the registration or login API endpoint based on the current mode.
+  ///
+  /// Throws [AuthException] on failure with a user-friendly message that will
+  /// be displayed via a SnackBar.
+  Future<AuthResponse> _authenticate() async {
+    if (_loginMode) {
+      return AuthClient.login(
+        username: _username.text,
+        password: _password.text,
+      );
+    } else {
+      return AuthClient.register(
+        username: _username.text,
+        email: _email.text,
+        password: _password.text,
+        firstName: _firstName.text,
+        middleName: _middleName.text.trim().isEmpty ? null : _middleName.text,
+        lastName: _lastName.text,
+      );
+    }
+  }
 
   static PageRouteBuilder<void> _smoothRoute(Widget page) => PageRouteBuilder(
     transitionDuration: const Duration(milliseconds: 250),
@@ -142,14 +211,19 @@ class _StaffAuthScreenState extends State<StaffAuthScreen> {
                               middleName: _middleName,
                               lastName: _lastName,
                               username: _username,
+                              email: _email,
                               password: _password,
                               confirmation: _confirmation,
                               obscurePassword: _obscurePassword,
                               staffType: _staffType,
                               submitting: _submitting,
+                              keepSignedIn: _keepSignedIn,
+                              onKeepSignedInChanged: (value) =>
+                                  setState(() => _keepSignedIn = value),
                               firstNameValidator: _firstNameValidator,
                               lastNameValidator: _lastNameValidator,
                               usernameValidator: _usernameValidator,
+                              emailValidator: _emailValidator,
                               passwordValidator: _passwordValidator,
                               confirmationValidator: _confirmationValidator,
                               onSubmit: _submit,
@@ -189,14 +263,18 @@ class _AuthCard extends StatelessWidget {
     required this.middleName,
     required this.lastName,
     required this.username,
+    required this.email,
     required this.password,
     required this.confirmation,
     required this.obscurePassword,
     required this.staffType,
     required this.submitting,
+    required this.keepSignedIn,
+    required this.onKeepSignedInChanged,
     required this.firstNameValidator,
     required this.lastNameValidator,
     required this.usernameValidator,
+    required this.emailValidator,
     required this.passwordValidator,
     required this.confirmationValidator,
     required this.onSubmit,
@@ -209,14 +287,18 @@ class _AuthCard extends StatelessWidget {
   final TextEditingController middleName;
   final TextEditingController lastName;
   final TextEditingController username;
+  final TextEditingController email;
   final TextEditingController password;
   final TextEditingController confirmation;
   final ValueNotifier<bool> obscurePassword;
   final ValueNotifier<StaffType> staffType;
   final ValueNotifier<bool> submitting;
+  final bool keepSignedIn;
+  final ValueChanged<bool> onKeepSignedInChanged;
   final FormFieldValidator<String> firstNameValidator;
   final FormFieldValidator<String> lastNameValidator;
   final FormFieldValidator<String> usernameValidator;
+  final FormFieldValidator<String> emailValidator;
   final FormFieldValidator<String> passwordValidator;
   final FormFieldValidator<String> confirmationValidator;
   final VoidCallback onSubmit;
@@ -267,6 +349,20 @@ class _AuthCard extends StatelessWidget {
                 textInputAction: TextInputAction.next,
                 validator: usernameValidator,
               ),
+              if (!loginMode) ...[
+                const SizedBox(height: 14),
+                _AuthField(
+                  label: 'Email',
+                  hint: 'Enter your email address',
+                  icon: Icons.email_outlined,
+                  controller: email,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  validator: emailValidator,
+                ),
+              ],
               const SizedBox(height: 14),
               ValueListenableBuilder<bool>(
                 valueListenable: obscurePassword,
@@ -310,7 +406,20 @@ class _AuthCard extends StatelessWidget {
                   ),
                 ),
               ],
-              const SizedBox(height: 22),
+              if (loginMode)
+                Material(
+                  color: Colors.transparent,
+                  child: CheckboxListTile(
+                    value: keepSignedIn,
+                    onChanged: (value) => onKeepSignedInChanged(value ?? false),
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    title: const Text('Keep me signed in'),
+                    activeColor: EcoTraceColors.forest,
+                    dense: true,
+                  ),
+                ),
+              const SizedBox(height: 8),
               ValueListenableBuilder<bool>(
                 valueListenable: submitting,
                 builder: (context, isSubmitting, _) => FilledButton(
@@ -443,6 +552,7 @@ class _AuthField extends StatelessWidget {
     this.autocorrect = true,
     this.enableSuggestions = true,
     this.obscureText = false,
+    this.keyboardType,
     this.textCapitalization = TextCapitalization.none,
     this.textInputAction,
     this.validator,
@@ -459,6 +569,7 @@ class _AuthField extends StatelessWidget {
   final bool autocorrect;
   final bool enableSuggestions;
   final bool obscureText;
+  final TextInputType? keyboardType;
   final TextCapitalization textCapitalization;
   final TextInputAction? textInputAction;
   final FormFieldValidator<String>? validator;
@@ -477,6 +588,7 @@ class _AuthField extends StatelessWidget {
           autocorrect: autocorrect,
           enableSuggestions: enableSuggestions,
           obscureText: obscureText,
+          keyboardType: keyboardType,
           textCapitalization: textCapitalization,
           textInputAction: textInputAction,
           onFieldSubmitted: onFieldSubmitted,

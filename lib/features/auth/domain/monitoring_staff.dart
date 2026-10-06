@@ -19,7 +19,6 @@ class MonitoringStaff {
     required this.firstName,
     this.middleName,
     required this.lastName,
-    required this.passwordHash,
     required this.staffType,
   });
 
@@ -27,6 +26,5 @@ class MonitoringStaff {
   final String firstName;
   final String? middleName;
   final String lastName;
-  final String passwordHash;
   final StaffType staffType;
 }

@@ -1,26 +1,23 @@
 # EcoTrace
 
-Flutter **Android-only** app for environmental tree monitoring, third-party
-auditing, field verification, incident reporting, and synchronization of audit
-feedback.
+EcoTrace is an Android Flutter application for environmental tree monitoring,
+field verification, incident reporting, events, alerts, and audit feedback.
+The companion admin web app manages the authoritative operational data and
+review workflow.
 
-> ### 📖 Documentation lives in [`DOCUMENTATION.md`](DOCUMENTATION.md)
->
-> That file is the single source of truth: product goals, design tokens,
-> architecture, a feature-by-feature reference, domain contracts, performance
-> history, the open work queue, settled decisions, and the full progress log.
->
-> This README is intentionally short so the two cannot drift.
+> ### Documentation
+> [`DOCUMENTATION.md`](DOCUMENTATION.md) is the single source of truth for the
+> admin web app/backend handoff and the Flutter application.
 
 ## Quick facts
 
 | | |
 |---|---|
-| Platform | Android only |
-| Stack | Flutter · Material 3 · `flutter_map` · `geolocator` · `http` · `image_picker` |
-| Source | 69 Dart files in `lib/` |
-| Tests | 71, all passing |
-| State | High-fidelity frontend. **No backend, no persistence.** |
+| Mobile platform | Android |
+| Mobile stack | Flutter · Material 3 · `flutter_map` · `geolocator` · `http` · `image_picker` · `shared_preferences` |
+| Mobile state | REST authentication plus optional JWT/profile session persistence |
+| Admin reference | `C:\laragon\www\ecotrace_admin` |
+| Database reference | `docs/schema_v2.sql` |
 
 ## Current gates
 
@@ -28,39 +25,37 @@ feedback.
 cd C:\flutter_workspace\ecotrace
 flutter pub get
 flutter analyze      # clean
-flutter test         # 71/71
+flutter test         # 87 passed; 2 login-widget tests require HTTP mocking
 ```
 
-## What works today
+## Mobile application
 
-Events with a date-aware calendar and participation receipts · a real campus map
-with 23 admin-sourced trees, filters and OSRM routing · on-site tree verification
-(analysis mode → proximity gate → 4-step wizard with camera evidence) · incident
-reporting · alerts · profile · a three-state connectivity model that
-distinguishes "radio on" from "internet actually works" · a field-progress
-dashboard.
+The app launches through splash, restores an opted-in session when available,
+and otherwise shows staff login. Login can register/authenticate through the
+configured API. “Keep me signed in” is unchecked by default; when selected,
+only the JWT and non-sensitive profile fields are stored. Passwords are never
+persisted. Sign-out clears the stored session and removes authenticated routes.
 
-## What does not
+The current UI includes events, a 23-tree campus map, routing, field
+verification, incident reporting, alerts, profile, connectivity feedback, and
+a field-progress dashboard. Verification records and event participation remain
+local preview state until their API synchronization is implemented.
 
-Authentication is not connected to a backend. Nothing is persisted — a
-verification or an event join is lost on app restart. Tree data is a local
-transcription of the admin portal. The tree-scanning and NFC/QR paths are mock
-only. See §7 and §8 of `DOCUMENTATION.md` for the full queue and limitations.
+## Admin web app and backend
 
-> ⚠️ **The proximity gate is currently disabled**
-> (`VerificationProximity.enforcementEnabled == false`) so the verification UI can
-> be tested without a GPS fix. Restore it before recording real field data — see
-> §4.4.
+The admin web app is maintained separately at `C:\laragon\www\ecotrace_admin`.
+It owns administrative review and the authoritative tree/site inventory. This
+Flutter repository contains the integration contract and database reference,
+not the admin web app source. Use `docs/phpmyadmin_schema_setup.md` to create a
+fresh test database from `docs/schema_v2.sql`; do not import it into a legacy or
+production database without a staged migration.
 
-## Working on this repo
+## Known limitations
 
-[`ai_instructions.md`](ai_instructions.md) is **binding**: scan context first,
-plan before acting, document every change, clean up temporary files, and never
-run `git commit` / `git push`.
+The proximity gate is currently disabled for UI testing. The two failing login
+widget tests still depend on a real HTTP request and should be converted to
+mocked-client tests; they are not evidence of a backend failure. See
+`DOCUMENTATION.md` for the complete queue and verification notes.
 
-## Reference material
-
-| Source | Path |
-|---|---|
-| Original web design | `C:/Users/USER/Desktop/adi/New folder` |
-| Admin portal (authoritative tree inventory) | `C:/laragon/www/ecotrace_admin` |
+[`ai_instructions.md`](ai_instructions.md) is binding for repository work. Do
+not commit or push changes automatically.

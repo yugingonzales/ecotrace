@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_theme.dart';
 import 'models/local_event.dart';
@@ -45,13 +46,27 @@ class _AppShellState extends State<AppShell> {
         onMap: () => setState(() => _index = 1),
       ),
     ];
-    return Scaffold(
-      backgroundColor: EcoTraceColors.canvas,
-      body: IndexedStack(index: _index, children: pages),
-      bottomNavigationBar: BottomNavigation(
-        selectedIndex: _index,
-        onSelected: (value) => setState(() => _index = value),
-        onProgress: () => setState(() => _index = 4),
+    final dashboardSelected = _index == 4;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: dashboardSelected
+            ? Brightness.light
+            : Brightness.dark,
+        statusBarBrightness: dashboardSelected
+            ? Brightness.dark
+            : Brightness.light,
+        systemNavigationBarColor: EcoTraceColors.canvas,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: EcoTraceColors.canvas,
+        body: IndexedStack(index: _index, children: pages),
+        bottomNavigationBar: BottomNavigation(
+          selectedIndex: _index,
+          onSelected: (value) => setState(() => _index = value),
+          onProgress: () => setState(() => _index = 4),
+        ),
       ),
     );
   }

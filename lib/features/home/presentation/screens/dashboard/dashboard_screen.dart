@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../models/event_quota.dart';
@@ -39,114 +38,110 @@ class DashboardScreen extends StatelessWidget {
     final eventProgress = eventTarget == 0
         ? 0.0
         : (verified / eventTarget).clamp(0.0, 1.0);
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Color(0xFF0A3D2E),
-        statusBarIconBrightness: Brightness.light,
-        statusBarBrightness: Brightness.dark,
-        systemNavigationBarColor: EcoTraceColors.canvas,
-        systemNavigationBarIconBrightness: Brightness.dark,
-      ),
-      child: Scaffold(
-        backgroundColor: EcoTraceColors.canvas,
-        body: SafeArea(
-          bottom: false,
-          child: Column(
-            children: [
-              const _Header(),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 28, 20, 36),
-                  children: [
-                    const Text(
-                      'FIELD ACTIVITY',
-                      style: TextStyle(
-                        color: EcoTraceColors.muted,
-                        fontSize: 11,
+    return Scaffold(
+      backgroundColor: EcoTraceColors.canvas,
+      body: Column(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF0A3D2E), Color(0xFF124E3F)],
+              ),
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(26)),
+            ),
+            child: const SafeArea(bottom: false, child: _Header()),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 28, 20, 36),
+              children: [
+                const Text(
+                  'FIELD ACTIVITY',
+                  style: TextStyle(
+                    color: EcoTraceColors.muted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Your activity',
+                  style: TextStyle(
+                    color: EcoTraceColors.forestDeep,
+                    fontSize: 30,
+                    height: 1.05,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Track your impact and keep your field work moving.',
+                  style: TextStyle(
+                    color: EcoTraceColors.muted,
+                    fontSize: 14,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _UserProgressCard(verified: verified, pending: pending),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 54,
+                  child: FilledButton.icon(
+                    onPressed: onMap,
+                    icon: const Icon(Icons.map_outlined),
+                    label: const Text('Verify more trees'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: EcoTraceColors.forest,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(17),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 15,
                         fontWeight: FontWeight.w800,
-                        letterSpacing: 1.1,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Your activity',
-                      style: TextStyle(
-                        color: EcoTraceColors.forestDeep,
-                        fontSize: 30,
-                        height: 1.05,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Track your impact and keep your field work moving.',
-                      style: TextStyle(
-                        color: EcoTraceColors.muted,
-                        fontSize: 14,
-                        height: 1.35,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    _UserProgressCard(verified: verified, pending: pending),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      height: 54,
-                      child: FilledButton.icon(
-                        onPressed: onMap,
-                        icon: const Icon(Icons.map_outlined),
-                        label: const Text('Verify more trees'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: EcoTraceColors.forest,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(17),
-                          ),
-                          textStyle: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                          ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _EventProgressCard(
+                  target: eventTarget,
+                  verified: verified,
+                  participants: eventParticipants,
+                  progress: eventProgress,
+                ),
+                const SizedBox(height: 22),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Joined events',
+                        style: TextStyle(
+                          color: EcoTraceColors.forestDeep,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    _EventProgressCard(
-                      target: eventTarget,
-                      verified: verified,
-                      participants: eventParticipants,
-                      progress: eventProgress,
-                    ),
-                    const SizedBox(height: 22),
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            'Joined events',
-                            style: TextStyle(
-                              color: EcoTraceColors.forestDeep,
-                              fontSize: 19,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                        _CountPill(count: events.length),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (events.isEmpty)
-                      const _EmptyState()
-                    else
-                      ...events.map(
-                        (e) => _EventCard(
-                          event: e,
-                          onLeave: () => _confirmLeave(context, e),
-                        ),
-                      ),
+                    _CountPill(count: events.length),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                if (events.isEmpty)
+                  const _EmptyState()
+                else
+                  ...events.map(
+                    (e) => _EventCard(
+                      event: e,
+                      onLeave: () => _confirmLeave(context, e),
+                    ),
+                  ),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -180,12 +175,8 @@ class _Header extends StatelessWidget {
   const _Header();
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(colors: [Color(0xFF0A3D2E), Color(0xFF124E3F)]),
-      borderRadius: BorderRadius.vertical(bottom: Radius.circular(26)),
-    ),
     child: Row(
       children: [
         Container(

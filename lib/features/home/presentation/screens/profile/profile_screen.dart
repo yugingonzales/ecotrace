@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../auth/data/auth_client.dart';
 import '../../../../auth/domain/monitoring_staff.dart';
+import '../../../../auth/presentation/staff_auth_screen.dart';
 import '../../models/user_profile.dart';
 import '../../widgets/shared/info_row.dart';
 import '../../widgets/shared/section_title.dart';
@@ -61,6 +63,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         content: Text('Profile details updated.'),
         backgroundColor: EcoTraceColors.forest,
       ),
+    );
+  }
+
+  Future<void> _signOut() async {
+    await AuthSession.clear();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => const StaffAuthScreen()),
+      (_) => false,
     );
   }
 
@@ -176,8 +187,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 16),
               OutlinedButton.icon(
-                onPressed: () =>
-                    Navigator.of(context).popUntil((route) => route.isFirst),
+                onPressed: _signOut,
                 icon: const Icon(Icons.logout_rounded),
                 label: const Text('Sign out'),
                 style: OutlinedButton.styleFrom(

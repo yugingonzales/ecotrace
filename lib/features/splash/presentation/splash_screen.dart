@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../auth/data/auth_client.dart';
 import '../../auth/presentation/staff_auth_screen.dart';
+import '../../home/presentation/app_shell.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -95,8 +97,13 @@ class _SplashScreenState extends State<SplashScreen>
         kSplashSequenceDuration.inMilliseconds == 150 + 200 + 650 + 300 + 950,
         'kSplashSequenceDuration drifted from the staged delays below.',
       );
-      Navigator.of(context)
-          .pushReplacement(_smoothRoute(const StaffAuthScreen()));
+      final session = await AuthSession.restore();
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        _smoothRoute(
+          session == null ? const StaffAuthScreen() : const AppShell(),
+        ),
+      );
     } catch (_) {
       // Widget disposed mid-sequence; abort silently.
     }

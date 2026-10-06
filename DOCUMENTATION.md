@@ -66,11 +66,15 @@ dark-green contrast, lemon action accents, readable form spacing.
 
 ## 2. Current status
 
-**Current gates: `flutter analyze` clean · `flutter test` 89/89 green.**
+**Current gates (2026-10-06): `flutter analyze` clean · `flutter test` 87 passed, 2 known login-widget failures.**
+
+The two failures are stale tests that submit login to the real HTTP endpoint in
+Flutter's test binding. They need a mocked authentication client; the
+application's production authentication flow is not being bypassed.
 
 | Area | State |
 |---|---|
-| Entry point | `EcoTraceApp` launches into `SplashScreen`, which transitions to the staff login screen and then to `AppShell` on submit |
+| Entry point | `EcoTraceApp` launches into `SplashScreen`; it restores an opted-in session into `AppShell`, or transitions to staff login and then `AppShell` on submit |
 | Shell | Bottom nav with 5 slots; centre action is **"View field progress"**, not the scanner; dashboard actions remain in-shell and the dashboard profile icon is intentionally omitted |
 | Events | Inline search (`events-search-field`), date-aware rolling strip and real month grid, collapsing strip, joined-only filter, right-aligned calendar action, multi-day start/end markers, participation receipt |
 | Map | Real `flutter_map` campus map, 23 admin trees, OSM/Esri toggle, zone+status filters, left-rail controls, OSRM road routing |
@@ -82,7 +86,7 @@ dark-green contrast, lemon action accents, readable form spacing.
 | Field progress | Theme-native dashboard with user quota, verified trees, event-wide target/progress/participant metrics, and a map handoff for verifying more trees |
 | Sync dashboard | Static preview records with refresh feedback; transport remains pending |
 
-### Test suite — 89 tests
+### Test suite — 89 test cases (87 passing, 2 HTTP-dependent failures)
 
 | File | Tests |
 |---|---|
@@ -96,16 +100,17 @@ dark-green contrast, lemon action accents, readable form spacing.
 ### Dependencies
 
 `cupertino_icons`, `connectivity_plus ^7.3.1`, `flutter_map ^8.3.2`,
-`latlong2 ^0.10.1`, `http ^1.6.0`, `geolocator ^14.1.1`, `image_picker ^1.2.3`.
+`latlong2 ^0.10.1`, `http ^1.6.0`, `geolocator ^14.1.1`, `image_picker ^1.2.3`,
+`shared_preferences ^2.5.3`.
 
-> **`http` is a probe-only dependency.** It is used *solely* by
-> `lib/core/connectivity/internet_probe.dart` to answer "is the internet actually
-> reachable". There is **no** HTTP data source, repository or backend
-> integration anywhere in the app.
+`http` is used by connectivity probing and the authentication client. The auth
+client calls the configured REST endpoints in `lib/core/config/api_config.dart`.
+`shared_preferences` stores only the opted-in JWT and profile fields; it never
+stores the password.
 
-**Still absent by design:** no `dio`, no `shared_preferences`/`sqflite`/`hive`, no
-`flutter_secure_storage`, no state management (`provider`/`riverpod`/`bloc`), no
-`mobile_scanner`, no `nfc_manager`, no camera package (`image_picker` only).
+**Still absent by design:** no `dio`, `sqflite`/`hive`,
+`flutter_secure_storage`, state management (`provider`/`riverpod`/`bloc`),
+`mobile_scanner`, or `nfc_manager`.
 
 **Android manifest permissions:** `INTERNET`, `ACCESS_NETWORK_STATE`,
 `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`, `CAMERA`.
@@ -122,8 +127,17 @@ dark-green contrast, lemon action accents, readable form spacing.
 lib/
   main.dart
   core/
-    theme/  date/  connectivity/
-    routing/  errors/  network/  storage/  widgets/     ← still to be populated
+    theme/  date/  connectivity/  config/
+  features/
+    auth/ (REST client, session storage, login/register UI)
+    splash/ (restore-or-login launch routing)
+    home/ (shell and mobile features)
+```
+
+The admin web app is a separate project at `C:\laragon\www\ecotrace_admin`.
+Its tree/site modules are the source used to seed the mobile map. The database
+contract kept in this repository is `docs/schema_v2.sql`, with the import and
+validation procedure in `docs/phpmyadmin_schema_setup.md`.
   features/
     auth/            data/ domain/ presentation/
     field_verification/  data/ domain/ presentation/
@@ -342,6 +356,13 @@ a lossy `bool`.
 
 Reached from the bottom-nav **centre** action, tooltip **"View field progress"**.
 
+**Safe-area and system-bar behavior.** `dashboard_screen.dart` keeps the Dashboard
+header below the top safe-area inset rather than placing it underneath the status
+bar. Its `AnnotatedRegion<SystemUiOverlayStyle>` colors the top status-bar inset
+`#0A3D2E` with light icons, while the bottom navigation/system inset remains the
+canvas color (`#F4F7F5`) with dark icons. Do not move the header into the system
+inset to achieve the status-bar color.
+
 **Preview provenance.** Figures mirror the operational sample in the web admin
 reference (`ecotrace_admin/src/components/modules/EventManagement.tsx`) and
 exercise the aggregation rules — they are **not** live telemetry:
@@ -394,10 +415,10 @@ Recommended future fields, pending backend confirmation: `display_name`,
 
 The client should receive a session/token response, **not** the password hash.
 
-> ⚠️ **SEC-1 (hold).** `MonitoringStaff` carries a client-side `passwordHash`
-> field (`auth/domain/monitoring_staff.dart:22`). Even unused, a domain object
-> that invites a hash on-device violates the project's own data rules. **Blocked:**
-> that file has uncommitted local changes.
+> **SEC-1 resolved (2026-10-06).** Removed the unused `passwordHash` field from
+> `auth/domain/monitoring_staff.dart`. Authentication now sends the password only
+> to the login/register endpoint; session storage contains the JWT and profile
+> fields, never the password or a password hash.
 
 ### `TREE_RECORD`
 
@@ -427,7 +448,7 @@ the only matches for `TreeRecord`, `IncidentReport`, `SyncSummary`,
 
 | Model | File | Constructed by UI? |
 |---|---|---|
-| `MonitoringStaff` (has `passwordHash`) | `auth/domain/monitoring_staff.dart` | ❌ never instantiated |
+| `MonitoringStaff` (`StaffType` contract) | `auth/domain/monitoring_staff.dart` | ❌ never instantiated |
 | `TreeRecord` (+ `PlantStatus`/`VerificationStatus`/`MeasurementSource`) | `field_verification/domain/tree_record.dart` | ✅ since the verification wizard |
 | `IncidentReport` (+ `IncidentType`/`Severity`/`Status`) | `incidents/domain/incident_report.dart` | ❌ never instantiated |
 | `SyncSummary` / `SyncStatus` | `synchronization/domain/sync_state.dart` | ❌ never instantiated |
@@ -523,7 +544,7 @@ report".
 | PERF-2 | Recompress `ecotrace_icon.png` (892 KB) with `pngquant` | ⬜ |
 | PERF-3 | Hoist `EventsScreen._daysWithEvents` to `static final` | ⬜ |
 | PERF-5 | Release signing + ABI splits | ⬜ |
-| SEC-1 | Remove/guard the client-side `passwordHash` on `MonitoringStaff` | ⛔ **hold** — file has uncommitted changes |
+| SEC-1 | Remove/guard the client-side `passwordHash` on `MonitoringStaff` | ✅ resolved 2026-10-06 |
 | V-1 | **Persist completed verifications.** Phase 3's record lives only in `MapScreen._verifiedStatuses` and is lost on restart | ⬜ **highest value** |
 | V-2 | **Retire `ManualEntrySheet`.** The scanner's old one-page form duplicates the wizard and is strictly worse — asks for a tree tag the officer already selected, no evidence step, no proximity check. Route its button into the wizard, or delete it | ⬜ |
 | V-3 | **Live-fix the proximity gate.** A single GPS sample widened by accuracy can accept a 6 m reading with a 20 m fix. Averaging several fixes tightens the gate without stranding officers | ⬜ |
@@ -622,7 +643,7 @@ ID format and authorization rules are agreed.
 - Verification records are **lost on restart** (`MapScreen._verifiedStatuses`).
 - Event participation is **lost on restart** (`_joinedEvents`).
 - The proximity gate is **disabled**; records made now have no position proof.
-- `passwordHash` on a client-side model violates the project's own data rules.
+- Authentication passwords are sent only to the API; the mobile session stores no password or password hash.
 
 ---
 
@@ -654,7 +675,7 @@ All questions previously raised are closed. Recorded so they are not re-litigate
 cd C:\flutter_workspace\ecotrace
 flutter pub get
 flutter analyze      # must be clean
-flutter test         # must be green — 71/71 at merge time
+flutter test         # current result: 87 passing, 2 HTTP-dependent login-widget failures
 flutter build apk --debug
 ```
 
@@ -671,8 +692,11 @@ number recorded in any log.
 
 ## 11. Progress log
 
+| 2026-10-04 | Dashboard system-bar behavior | Documented that the Dashboard header stays below the top safe-area inset; `AnnotatedRegion<SystemUiOverlayStyle>` colors the status-bar inset `#0A3D2E` with light icons, while the bottom navigation/system inset remains canvas-colored with dark icons | analyze ✅ · 89/89 ✅ |
+
 | Date | Task | Change | Gates |
 |---|---|---|---|
+| 2026-10-06 | Admin/mobile documentation and cleanup | Updated the README and project documentation for the separate admin web app/backend contract and the Flutter mobile session flow; corrected live test and dependency status; removed the superseded `docs/minimal_auth_schema.sql`; removed the unused client-side `passwordHash` field while retaining the active `StaffType` contract. The current schema remains `docs/schema_v2.sql` with `docs/phpmyadmin_schema_setup.md` | analyze ✅ · focused tests ✅ · full suite 87 passed, 2 HTTP-dependent failures |
 | 2026-09-27 | Audit | Full read of 56 `lib/` files + configs. Wrote the code audit and the task plan. Re-ran baseline: analyze clean, **22/22** tests (docs said 11 — logged as D-1). No code changed | analyze ✅ · 22/22 ✅ |
 | 2026-09-27 | PERF-1 | **Retracted before any change was made.** User questioned the delete; re-grepped the *whole* repo instead of only `lib/` and found `tools/regenerate_icons.py:24` uses it as `SRC`. No deletion performed. Lesson recorded: absence from `pubspec.yaml` proves *unbundled*, not *unused* | n/a — no code touched |
 | 2026-09-27 | Phase 1 | Calendar made date-aware. `LocalEvent.day: int` → `DateTime`; new `core/date/app_date.dart`; new `field_event_seed.dart` (four activities relative to today); strip rebuilt as a 42-day rolling window with real weekdays; full calendar rebuilt as a real leap-aware month grid with prev/next; every `'Sep …'` literal removed. Fixed a header overflow the live count introduced on 320 dp viewports | analyze ✅ · 22/22 ✅ |
@@ -705,9 +729,9 @@ Merged on 2026-10-03 from these ten files, all deleted in the same change
 | Merged file | Contribution |
 |---|---|
 | `README.md` | Product goal, reference design, theme tokens, architecture direction, domain contracts, planned phases |
-| `TASK_PLAN.md` | The work queue, ground rules, progress log |
-| `CODE_AUDIT_2026-09-27.md` | Full-repo audit, orphaned domain layer, per-feature gap list |
-| `FUNCTIONALITY_PHASES.md` | Phases 1–2 (calendar, connectivity), Phase 3 verification design + bugs found |
+| `docs/schema_v2.sql` | Current admin/backend relational schema reference |
+| `docs/phpmyadmin_schema_setup.md` | Fresh test-database import and validation procedure |
+| `docs/schema_v2_mapping.md` | Schema naming and backend query migration notes |
 | `PERFORMANCE_REPORT.md` | Performance findings P0–P3, applied fixes, hardware measurement guide |
 | `PERFORMANCE_TRACKING.md` | Fix tracker with per-fix learnings and the "deliberately not changing" list |
 | `DASHBOARD_PROGRESS.md` | Field-progress dashboard design + preview-data provenance |
