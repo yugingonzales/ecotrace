@@ -101,7 +101,9 @@ class _SplashScreenState extends State<SplashScreen>
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         _smoothRoute(
-          session == null ? const StaffAuthScreen() : const AppShell(),
+          session == null
+              ? const StaffAuthScreen()
+              : AppShell(user: session.user),
         ),
       );
     } catch (_) {

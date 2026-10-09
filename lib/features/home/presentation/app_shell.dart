@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../auth/data/auth_client.dart';
 import 'models/local_event.dart';
 import 'screens/alerts/alerts_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
@@ -11,7 +12,9 @@ import 'screens/profile/profile_screen.dart';
 import 'widgets/navigation/bottom_navigation.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({super.key, this.user});
+
+  final User? user;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -39,7 +42,7 @@ class _AppShellState extends State<AppShell> {
       ),
       _LazyTab(active: _index == 1, builder: (context) => const MapScreen()),
       const AlertsScreen(),
-      const ProfileScreen(),
+      ProfileScreen(user: widget.user),
       DashboardScreen(
         joinedEventIds: _joinedEventIds,
         onLeave: _leaveFromDashboard,

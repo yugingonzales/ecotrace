@@ -12,14 +12,16 @@ import '../../widgets/shared/top_bar.dart';
 import '../sync/sync_dashboard_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({super.key, this.user});
+
+  final User? user;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  UserProfile _profile = currentUserProfile;
+  late UserProfile _profile;
   late final TextEditingController _email;
   late final TextEditingController _address;
   late final TextEditingController _contact;
@@ -28,6 +30,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _profile = widget.user == null
+        ? currentUserProfile
+        : UserProfile.fromUser(widget.user!);
     _email = TextEditingController(text: _profile.email);
     _address = TextEditingController(text: _profile.homeAddress);
     _contact = TextEditingController(text: _profile.contactNumber);
@@ -67,6 +72,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _signOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign out?'),
+        content: const Text(
+          'You will need to log in again to access EcoTrace.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
     await AuthSession.clear();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(

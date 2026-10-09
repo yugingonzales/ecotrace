@@ -16,7 +16,7 @@ review workflow.
 | Mobile platform | Android |
 | Mobile stack | Flutter · Material 3 · `flutter_map` · `geolocator` · `http` · `image_picker` · `shared_preferences` |
 | Mobile state | REST authentication plus optional JWT/profile session persistence |
-| Admin reference | `C:\laragon\www\ecotrace_admin` |
+| Admin reference | `C:\xampp\htdocs\projects\ecotrace_admin` |
 | Database reference | `docs/schema_v2.sql` |
 
 ## Current gates
@@ -43,7 +43,7 @@ local preview state until their API synchronization is implemented.
 
 ## Admin web app and backend
 
-The admin web app is maintained separately at `C:\laragon\www\ecotrace_admin`.
+The admin web app is maintained separately at `C:\xampp\htdocs\projects\ecotrace_admin`.
 It owns administrative review and the authoritative tree/site inventory. This
 Flutter repository contains the integration contract and database reference,
 not the admin web app source. Use `docs/phpmyadmin_schema_setup.md` to create a

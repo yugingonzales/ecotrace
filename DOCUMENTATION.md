@@ -39,7 +39,7 @@ feedback. Do not add iOS, web or desktop flows unless explicitly requested.
 | Source | Path | Used for |
 |---|---|---|
 | Web project | `C:/Users/USER/Desktop/adi/New folder` | `login.html`, `css/login.css`, `index.html`, `css/add.css`, `alerts.html`, `events.html`, `map.html` |
-| Admin portal (authoritative inventory) | `C:/laragon/www/ecotrace_admin` | `src/lib/trees.ts` (tree inventory + statuses), `src/lib/site.ts` (zones, campus bounds, mapping helpers) |
+| Admin portal (authoritative inventory) | `C:/xampp/htdocs/projects/ecotrace_admin` | `src/lib/trees.js` (tree inventory + statuses), `src/lib/site.js` (zones, campus bounds, mapping helpers) |
 
 The Flutter map transcribes the admin portal's data into
 `lib/features/home/presentation/models/campus_data.dart`.
@@ -134,7 +134,7 @@ lib/
     home/ (shell and mobile features)
 ```
 
-The admin web app is a separate project at `C:\laragon\www\ecotrace_admin`.
+The admin web app is a separate project at `C:\xampp\htdocs\projects\ecotrace_admin`.
 Its tree/site modules are the source used to seed the mobile map. The database
 contract kept in this repository is `docs/schema_v2.sql`, with the import and
 validation procedure in `docs/phpmyadmin_schema_setup.md`.
@@ -582,7 +582,7 @@ report".
 |---|---|---|
 | F-1 | Real authentication: DTOs, data source, repository, secure token storage, session restore, expiry, route guard | API contract |
 | F-5 | Real sync dashboard: transport, queue states, conflict UI, pull-to-refresh, last-sync time | API contract |
-| F-7 | Profile bound to the signed-in staff record (currently literals) | F-1 |
+| F-7 | Profile bound to the signed-in staff record (currently literals) | ✅ implemented in current auth/profile flow |
 | F-8 | Map inventory from backend instead of the 23-tree local seed | tree-records endpoint |
 | F-9 | Field-progress dashboard from a repository instead of preview data | events endpoint |
 | F-11 | Map "my location" marker + recentre-on-me (the recenter button still jumps to the hard-coded `campusCenterLat/Lng`) | partly done |
@@ -603,16 +603,32 @@ report".
 
 ### Intentional preview limitations
 
-Authentication is not connected to a backend. A valid local form submission only
-opens the frontend preview. No password is hashed, persisted, transmitted or
-compared. No access token, refresh token, session or route guard exists. Profile
-"Sign out" just `popUntil(isFirst)`.
+The admin portal source and API are available at
+`C:\xampp\htdocs\projects\ecotrace_admin`. Its Node.js service exposes the
+confirmed authentication contract:
 
-### API contract must be confirmed first
+- `POST /api/auth/login` accepts `{ username, password }`.
+- `POST /api/auth/register` creates a `volunteer` account and returns a JWT.
+- `GET /api/auth/profile` and `/api/auth/me` require `Authorization: Bearer <JWT>`.
+- Successful responses return `{ token, user }`; the user includes `id`, name fields,
+  email, role, and status.
+- Password hashing and verification are handled server-side with bcrypt, and JWTs
+  are signed by the API.
 
-Do not proceed with production auth until the API base URL, authentication
-payload, response payload, token strategy, password-hashing responsibility, staff
-ID format and authorization rules are agreed.
+The Flutter client now matches this contract for login, registration, JWT session
+persistence, session restoration, logout, and authenticated profile presentation.
+The remaining limitations are secure platform token storage, token expiry/refresh,
+and backend synchronization for domain features. The admin portal's own login is
+restricted to users whose returned role is `admin`; public registrations are not
+allowed into the admin area.
+
+### Admin integration verification
+
+The moved project was inspected at the path above. Start its API from
+`C:\xampp\htdocs\projects\ecotrace_admin\server` with `npm start`; it listens on
+port 3000 by default. The Flutter `ApiConfig.baseUrl` must point to the API host
+reachable by the device (for an Android emulator, use `10.0.2.2`; for a physical
+device, use the development PC's LAN IP).
 
 ### Testing constraints discovered the hard way
 

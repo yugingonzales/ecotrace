@@ -131,7 +131,8 @@ class _StaffAuthScreenState extends State<StaffAuthScreen> {
         await AuthSession.clear();
       }
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(_smoothRoute(const AppShell()));
+      Navigator.of(context)
+          .pushReplacement(_smoothRoute(AppShell(user: response.user)));
     } on AuthException catch (e) {
       _showError(e.message);
     } catch (e) {
@@ -413,6 +414,7 @@ class _AuthCard extends StatelessWidget {
                     value: keepSignedIn,
                     onChanged: (value) => onKeepSignedInChanged(value ?? false),
                     contentPadding: EdgeInsets.zero,
+                    horizontalTitleGap: 0,
                     controlAffinity: ListTileControlAffinity.leading,
                     title: const Text('Keep me signed in'),
                     activeColor: EcoTraceColors.forest,

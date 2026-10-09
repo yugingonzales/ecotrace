@@ -1,4 +1,13 @@
+import '../../../auth/data/auth_client.dart';
 import '../../../auth/domain/monitoring_staff.dart';
+
+extension UserStaffType on User {
+  StaffType get staffType => switch (role.trim().toLowerCase()) {
+    'staff' => StaffType.staff,
+    'volunteer' => StaffType.volunteer,
+    _ => StaffType.intern,
+  };
+}
 
 class UserProfile {
   const UserProfile({
@@ -35,6 +44,19 @@ class UserProfile {
       .where((part) => part.trim().isNotEmpty)
       .map((part) => part[0].toUpperCase())
       .join();
+
+  factory UserProfile.fromUser(User user) => UserProfile(
+    username: user.email,
+    firstName: user.firstName,
+    middleName: user.middleName ?? '',
+    lastName: user.lastName,
+    staffType: user.staffType,
+    staffId: 'STAFF-${user.id.toString().padLeft(5, '0')}',
+    staffNumber: user.id.toString(),
+    email: user.email,
+    homeAddress: 'Not provided',
+    contactNumber: 'Not provided',
+  );
 
   UserProfile copyWith({
     String? email,
