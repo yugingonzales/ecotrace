@@ -11,6 +11,7 @@ class AlertCard extends StatelessWidget {
     required this.color,
     required this.textColor,
     required this.body,
+    this.onViewed,
     super.key,
   });
 
@@ -20,6 +21,7 @@ class AlertCard extends StatelessWidget {
   final Color color;
   final Color textColor;
   final String body;
+  final VoidCallback? onViewed;
 
   @override
   Widget build(BuildContext context) => SurfaceCard(
@@ -78,19 +80,22 @@ class AlertCard extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         TextButton(
-          onPressed: () => showDialog<void>(
-            context: context,
-            builder: (_) => AlertDialog(
-              title: Text(title),
-              content: Text(body),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Close'),
-                ),
-              ],
-            ),
-          ),
+          onPressed: () {
+            onViewed?.call();
+            showDialog<void>(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: Text(title),
+                content: Text(body),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close'),
+                  ),
+                ],
+              ),
+            );
+          },
           style: TextButton.styleFrom(
             alignment: Alignment.centerLeft,
             padding: EdgeInsets.zero,

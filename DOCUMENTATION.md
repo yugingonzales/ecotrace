@@ -624,11 +624,50 @@ allowed into the admin area.
 
 ### Admin integration verification
 
-The moved project was inspected at the path above. Start its API from
-`C:\xampp\htdocs\projects\ecotrace_admin\server` with `npm start`; it listens on
-port 3000 by default. The Flutter `ApiConfig.baseUrl` must point to the API host
-reachable by the device (for an Android emulator, use `10.0.2.2`; for a physical
-device, use the development PC's LAN IP).
+**Updated 2026-10-09:** Complete setup guides are now available in the admin portal repository.
+
+The admin project is at `C:\xampp\htdocs\projects\ecotrace_admin`. Start its API from
+`C:\xampp\htdocs\projects\ecotrace_admin\server` with `npm run dev`; it listens on
+port 3000 by default.
+
+#### Connecting Flutter App to Backend
+
+The Flutter `ApiConfig.baseUrl` must point to the API host reachable by the device:
+
+- **Android Emulator:** Use `http://10.0.2.2:3000/api` (emulator's host loopback)
+- **Physical Device:** Use `http://YOUR_PC_LAN_IP:3000/api` (e.g., `http://192.168.1.42:3000/api`)
+- **iOS Simulator:** Use `http://localhost:3000/api` (shares host network)
+
+**Current Configuration:**
+File: `lib/core/config/api_config.dart`
+```dart
+static const String baseUrl = 'http://192.168.1.79:3000/api';
+```
+
+**To find your PC's IP:**
+- Windows: `ipconfig | Select-String "IPv4.*192.168"`
+- Mac/Linux: `ifconfig | grep "inet "`
+
+**Backend Requirements:**
+1. XAMPP MySQL/MariaDB must be running
+2. Backend server: `cd server && npm run dev`
+3. Database: `ecotrace_db` (or `ecotrace_v2_test` - configure in `server/.env`)
+4. Firewall: Allow port 3000 for incoming connections
+5. Network: Device and PC must be on same Wi-Fi network
+
+**Troubleshooting:**
+See admin portal's `SERVER_STARTUP_AND_FLUTTER_CONNECTION.md` for:
+- Complete connection troubleshooting checklist
+- Firewall configuration steps
+- Common error messages and solutions
+- Android cleartext traffic configuration (already set in AndroidManifest)
+
+**Admin Account Setup:**
+The backend requires manual admin account provisioning. Default admin credentials:
+- Email: `admin@ecotrace.local`
+- Password: `admin123`
+
+See `C:\xampp\htdocs\projects\ecotrace_admin\ADMIN_SETUP.md` for setup instructions.
 
 ### Testing constraints discovered the hard way
 

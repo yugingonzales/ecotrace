@@ -8,12 +8,14 @@ class BottomNavigation extends StatelessWidget {
     required this.selectedIndex,
     required this.onSelected,
     required this.onProgress,
+    this.unreadCount = 0,
     super.key,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
   final VoidCallback onProgress;
+  final int unreadCount;
 
   @override
   Widget build(BuildContext context) {
@@ -78,7 +80,6 @@ class BottomNavigation extends StatelessWidget {
                   index: 2,
                   icon: Icons.notifications_none_rounded,
                   label: 'Alerts',
-                  badge: '2',
                   selectedIndex: selectedIndex,
                   onSelected: onSelected,
                   compact: compact,

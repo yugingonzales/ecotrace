@@ -8,6 +8,9 @@ review workflow.
 > ### Documentation
 > [`DOCUMENTATION.md`](DOCUMENTATION.md) is the single source of truth for the
 > admin web app/backend handoff and the Flutter application.
+>
+> **Updated 2026-10-09:** Backend connection guides now available in the admin portal at
+> `C:\xampp\htdocs\projects\ecotrace_admin\SERVER_STARTUP_AND_FLUTTER_CONNECTION.md`
 
 ## Quick facts
 
@@ -18,6 +21,8 @@ review workflow.
 | Mobile state | REST authentication plus optional JWT/profile session persistence |
 | Admin reference | `C:\xampp\htdocs\projects\ecotrace_admin` |
 | Database reference | `docs/schema_v2.sql` |
+| Backend API | Node.js Express on port 3000 |
+| Backend Database | `ecotrace_db` (or `ecotrace_v2_test`) |
 
 ## Current gates
 
@@ -50,6 +55,37 @@ not the admin web app source. Use `docs/phpmyadmin_schema_setup.md` to create a
 fresh test database from `docs/schema_v2.sql`; do not import it into a legacy or
 production database without a staged migration.
 
+### Connecting to Backend API
+
+**Backend Setup:**
+1. Navigate to: `C:\xampp\htdocs\projects\ecotrace_admin\server`
+2. Start server: `npm run dev` (runs on port 3000)
+3. Ensure XAMPP MySQL is running
+
+**Flutter Configuration:**
+Edit `lib/core/config/api_config.dart`:
+
+```dart
+class ApiConfig {
+  // For Android Emulator:
+  static const String baseUrl = 'http://10.0.2.2:3000/api';
+  
+  // For Physical Device (replace with your PC's IP):
+  // static const String baseUrl = 'http://192.168.1.42:3000/api';
+}
+```
+
+**Find your PC's IP:**
+- Windows: `ipconfig` → Look for IPv4 Address (192.168.x.x)
+- Mac/Linux: `ifconfig` → Look for inet address
+
+**Troubleshooting:**
+See `C:\xampp\htdocs\projects\ecotrace_admin\SERVER_STARTUP_AND_FLUTTER_CONNECTION.md` for:
+- Complete connection setup guide
+- Firewall configuration
+- Network troubleshooting
+- Common error solutions
+
 ## Known limitations
 
 The proximity gate is currently disabled for UI testing. The two failing login
@@ -59,3 +95,7 @@ mocked-client tests; they are not evidence of a backend failure. See
 
 [`ai_instructions.md`](ai_instructions.md) is binding for repository work. Do
 not commit or push changes automatically.
+
+---
+
+**Last Updated:** 2026-10-09

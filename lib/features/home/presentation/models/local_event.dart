@@ -41,4 +41,29 @@ class LocalEvent {
       effectiveEndDate.day != date.day;
 
   final bool warm;
+
+  factory LocalEvent.fromApi(Map<String, dynamic> json) {
+    DateTime parseDate(String value) {
+      final parts = value.split('-').map(int.parse).toList();
+      return DateTime(parts[0], parts[1], parts[2]);
+    }
+
+    final start = parseDate(json['start_date'] as String);
+    final end = parseDate(json['end_date'] as String);
+    return LocalEvent(
+      id: 'api-${json['event_id']}',
+      date: start,
+      endDate: end,
+      time: 'All day',
+      title: json['event_title'] as String? ?? 'EcoTrace event',
+      location:
+          (json['event_location'] as String?) ??
+          (json['event_zone'] as String?) ??
+          'EcoTrace field site',
+      description: json['event_description'] as String? ?? '',
+      attendeeCount: (json['attendee_count'] as num?)?.toInt() ?? 0,
+      targetTrees: (json['trees_per_student'] as num?)?.toInt() ?? 0,
+      verifiedTrees: (json['verified_trees'] as num?)?.toInt() ?? 0,
+    );
+  }
 }

@@ -1,8 +1,14 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
 
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+import '../../../../../core/config/api_config.dart';
 import '../../../../../core/date/app_date.dart';
 import '../../../../../core/theme/app_theme.dart';
-import '../../models/field_event_seed.dart';
+import '../../data/event_client.dart';
+import '../../data/notification_store.dart';
+import '../../../../auth/data/auth_client.dart';
 import '../../models/local_event.dart';
 import '../../widgets/events/calendar_strip.dart';
 import '../../widgets/events/empty_events_state.dart';
@@ -32,13 +38,12 @@ class EventsScreen extends StatefulWidget {
 
 class _EventsScreenState extends State<EventsScreen>
     with SingleTickerProviderStateMixin {
-  /// Schedule is generated once per mount from the device's current date, so
-  /// the agenda is always populated and always forward-looking.
-  late final List<LocalEvent> _events = buildFieldEventSeed();
+  /// Events are authored by administrators and loaded from the shared API.
+  List<LocalEvent> _events = <LocalEvent>[];
+  bool _loading = true;
+  bool _loadFailed = false;
 
-  late DateTime _selectedDay = AppDate.dayOf(
-    _events.isEmpty ? DateTime.now() : _events.first.date,
-  );
+  late DateTime _selectedDay = AppDate.dayOf(DateTime.now());
 
   /// The strip is a rolling window anchored on today, so it can never show a
   /// stale month and always offers the days the seed data lands on.
@@ -50,11 +55,7 @@ class _EventsScreenState extends State<EventsScreen>
 
   /// Lowercase search text (title + location + description) per event,
   /// computed once instead of rebuilt on every `_visibleEvents` pass.
-  late final Map<String, String> _searchText = {
-    for (final event in _events)
-      event.id: '${event.title} ${event.location} ${event.description}'
-          .toLowerCase(),
-  };
+  Map<String, String> _searchText = <String, String>{};
 
   final _stripController = ScrollController();
   final _listController = ScrollController();
@@ -80,6 +81,60 @@ class _EventsScreenState extends State<EventsScreen>
   double _lastListPixels = 0;
 
   String _query = '';
+
+  Future<void> _loadActiveEvents() async {
+    try {
+      final token = await AuthSession.token();
+      final response = await http
+          .get(
+            Uri.parse(ApiConfig.events),
+            headers: token == null ? null : {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 8));
+      if (response.statusCode != 200) throw Exception('event request failed');
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final items = body['items'] as List<dynamic>? ?? const <dynamic>[];
+      final loaded = items
+          .map((item) => LocalEvent.fromApi(item as Map<String, dynamic>))
+          .toList();
+      for (final event in loaded) {
+        if (widget.joinedEventIds.contains(event.id) &&
+            event.effectiveEndDate.difference(DateTime.now()).inDays <= 2 &&
+            event.effectiveEndDate.isAfter(DateTime.now())) {
+          await NotificationStore.add(
+            id: 'event-closing-${event.id}',
+            title: 'Event closing soon',
+            body:
+                '${event.title} ends on ${event.effectiveEndDate.month}/${event.effectiveEndDate.day}.',
+            label: 'EVENT',
+            alertType: 'warning',
+            eventName: event.title,
+          );
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _events = loaded;
+        _loading = false;
+        _loadFailed = false;
+        _searchText = {
+          for (final event in _events)
+            event.id: '${event.title} ${event.location} ${event.description}'
+                .toLowerCase(),
+        };
+        if (_events.isNotEmpty) {
+          _selectedDay = AppDate.dayOf(_events.first.date);
+        }
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _loadFailed = true;
+        });
+      }
+    }
+  }
 
   Set<String> get _joinedEvents => widget.joinedEventIds;
 
@@ -113,6 +168,12 @@ class _EventsScreenState extends State<EventsScreen>
   @override
   void initState() {
     super.initState();
+    _searchText = {
+      for (final event in _events)
+        event.id: '${event.title} ${event.location} ${event.description}'
+            .toLowerCase(),
+    };
+    _loadActiveEvents();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _scrollToDay(_selectedDay);
     });
@@ -205,8 +266,23 @@ class _EventsScreenState extends State<EventsScreen>
       final confirmed = await _confirmLeave(event);
       if (!confirmed || !mounted) return;
 
+      try {
+        await EventClient.leave(event);
+      } catch (error) {
+        if (mounted) _showParticipationError(error);
+        return;
+      }
       final next = {..._joinedEvents}..remove(event.id);
       widget.onJoinedEventsChanged(next);
+      await NotificationStore.add(
+        id: 'participation-left-${event.id}',
+        title: 'Participation cancelled',
+        body: 'You left ${event.title}.',
+        label: 'PARTICIPATION',
+        alertType: 'warning',
+        eventName: event.title,
+      );
+      if (!mounted) return;
       await showParticipationReceipt(context, event, leaving: true);
       return;
     }
@@ -214,9 +290,29 @@ class _EventsScreenState extends State<EventsScreen>
     final confirmed = await _confirmParticipation(event);
     if (!confirmed || !mounted) return;
 
+    try {
+      await EventClient.join(event);
+    } catch (error) {
+      if (mounted) _showParticipationError(error);
+      return;
+    }
     final next = {..._joinedEvents}..add(event.id);
     widget.onJoinedEventsChanged(next);
+    await NotificationStore.add(
+      id: 'participation-joined-${event.id}',
+      title: 'Participation confirmed',
+      body: 'You joined ${event.title}.',
+      label: 'PARTICIPATION',
+      alertType: 'success',
+      eventName: event.title,
+    );
+    if (!mounted) return;
     await showParticipationReceipt(context, event);
+  }
+
+  void _showParticipationError(Object error) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(error.toString())));
   }
 
   Future<bool> _confirmLeave(LocalEvent event) async {
@@ -472,7 +568,16 @@ class _EventsScreenState extends State<EventsScreen>
                         'Schedule for '
                         '${selectedHeading == 'Today' ? 'today' : selectedHeading.toLowerCase()}',
                       ),
-                      if (visibleEvents.isEmpty)
+                      if (_loading)
+                        const Padding(
+                          padding: EdgeInsets.all(32),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (_loadFailed)
+                        const EmptyEventsState(
+                          message: 'Unable to load events. Pull to retry.',
+                        )
+                      else if (visibleEvents.isEmpty)
                         const EmptyEventsState()
                       else
                         ...visibleEvents.map(

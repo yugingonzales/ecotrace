@@ -4,7 +4,9 @@ import '../../../../../core/theme/app_theme.dart';
 import '../shared/surface_card.dart';
 
 class EmptyEventsState extends StatelessWidget {
-  const EmptyEventsState({super.key});
+  const EmptyEventsState({super.key, this.message});
+
+  final String? message;
 
   @override
   Widget build(BuildContext context) => SurfaceCard(
@@ -25,8 +27,8 @@ class EmptyEventsState extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        const Text(
-          'Try another date, search term, or filter.',
+        Text(
+          message ?? 'Try another date, search term, or filter.',
           textAlign: TextAlign.center,
           style: TextStyle(color: EcoTraceColors.muted, fontSize: 12),
         ),

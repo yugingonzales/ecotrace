@@ -179,6 +179,11 @@ class AuthSession {
     );
   }
 
+  static Future<String?> token() async {
+    final preferences = await SharedPreferences.getInstance();
+    return preferences.getString(_tokenKey);
+  }
+
   static Future<void> clear() async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.remove(_tokenKey);

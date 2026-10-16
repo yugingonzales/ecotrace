@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../auth/data/auth_client.dart';
+import 'data/event_client.dart';
 import 'models/local_event.dart';
 import 'screens/alerts/alerts_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
@@ -23,9 +24,33 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _index = 0;
   Set<String> _joinedEventIds = <String>{};
+  List<LocalEvent> _joinedEvents = <LocalEvent>[];
+  int _unreadNotificationCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadJoinedEvents();
+  }
+
+  Future<void> _loadJoinedEvents() async {
+    try {
+      final events = await EventClient.joined();
+      if (!mounted) return;
+      setState(() {
+        _joinedEvents = events;
+        _joinedEventIds = events.map((event) => event.id).toSet();
+      });
+    } catch (_) {}
+  }
 
   void _setJoinedEventIds(Set<String> ids) {
-    setState(() => _joinedEventIds = ids);
+    setState(() {
+      _joinedEventIds = ids;
+      _joinedEvents = _joinedEvents
+          .where((event) => ids.contains(event.id))
+          .toList();
+    });
   }
 
   void _leaveFromDashboard(LocalEvent event) {
@@ -41,9 +66,14 @@ class _AppShellState extends State<AppShell> {
         onJoinedEventsChanged: _setJoinedEventIds,
       ),
       _LazyTab(active: _index == 1, builder: (context) => const MapScreen()),
-      const AlertsScreen(),
+      AlertsScreen(
+        onUnreadCountChanged: (count) {
+          if (mounted) setState(() => _unreadNotificationCount = count);
+        },
+      ),
       ProfileScreen(user: widget.user),
       DashboardScreen(
+        events: _joinedEvents,
         joinedEventIds: _joinedEventIds,
         onLeave: _leaveFromDashboard,
         onMap: () => setState(() => _index = 1),
@@ -69,6 +99,7 @@ class _AppShellState extends State<AppShell> {
           selectedIndex: _index,
           onSelected: (value) => setState(() => _index = value),
           onProgress: () => setState(() => _index = 4),
+          unreadCount: _unreadNotificationCount,
         ),
       ),
     );

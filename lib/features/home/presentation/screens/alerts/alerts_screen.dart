@@ -1,13 +1,21 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
 
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+import '../../../../../core/config/api_config.dart';
+import '../../../../auth/data/auth_client.dart';
 import '../../../../../core/theme/app_theme.dart';
+import '../../data/notification_store.dart';
 import '../../models/alert_data.dart';
 import '../../widgets/alerts/alert_card.dart';
 import '../../widgets/alerts/filter_tabs.dart';
 import '../../widgets/shared/top_bar.dart';
 
 class AlertsScreen extends StatefulWidget {
-  const AlertsScreen({super.key});
+  const AlertsScreen({super.key, this.onUnreadCountChanged});
+
+  final ValueChanged<int>? onUnreadCountChanged;
 
   @override
   State<AlertsScreen> createState() => _AlertsScreenState();
@@ -15,48 +23,68 @@ class AlertsScreen extends StatefulWidget {
 
 class _AlertsScreenState extends State<AlertsScreen> {
   AlertFilter _filter = AlertFilter.all;
+  List<AlertData> _alerts = <AlertData>[];
+  bool _loading = true;
+  bool _failed = false;
+  final Set<String> _readAlertIds = <String>{};
+  List<AlertData> _localAlerts = <AlertData>[];
 
-  static const _alerts = [
-    AlertData(
-      title: 'Monitoring team selection',
-      time: 'Just now',
-      label: 'SELECTED',
-      color: Color(0xFFD7F5E3),
-      textColor: Color(0xFF15803D),
-      body: 'You have been selected for the Sector 4 Monitoring Team. Your expertise in tree health is a great addition to this mission.',
-      filter: AlertFilter.recent,
-    ),
-    AlertData(
-      title: 'Mandatory tree survey',
-      time: '12 min ago',
-      label: 'URGENT',
-      color: Color(0xFFFEF3C7),
-      textColor: Color(0xFFD97706),
-      body: 'Complete the Sector 4 tree health monitoring by 17:00 today. High priority.',
-      filter: AlertFilter.byDate,
-    ),
-    AlertData(
-      title: 'Sync complete',
-      time: '2 hrs ago',
-      label: 'INFO',
-      color: Color(0xFFE0F2FE),
-      textColor: Color(0xFF0284C7),
-      body: '7 verification records have been successfully synchronized to the EcoTrace system.',
-      filter: AlertFilter.recent,
-    ),
-  ];
-
-  /// Pull-to-refresh: re-reads the alert feed from the server.
-  Future<void> _refresh() async {
-    setState(() => _filter = AlertFilter.all);
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+  Future<void> _loadAlerts() async {
+    try {
+      final token = await AuthSession.token();
+      final response = await http
+          .get(
+            Uri.parse(ApiConfig.alerts),
+            headers: token == null ? null : {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 8));
+      if (response.statusCode != 200) throw Exception('alert request failed');
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final items = body['items'] as List<dynamic>? ?? const <dynamic>[];
+      final localItems = await NotificationStore.read();
+      if (!mounted) return;
+      setState(() {
+        _localAlerts = localItems.map(AlertData.fromLocal).toList();
+        _alerts = items
+            .map((item) => AlertData.fromApi(item as Map<String, dynamic>))
+            .toList();
+        _loading = false;
+        _failed = false;
+      });
+      widget.onUnreadCountChanged?.call(_unreadCount);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _failed = true;
+        });
+      }
+    }
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadAlerts();
+  }
+
+  /// Pull-to-refresh re-reads the published alert feed from the server.
+  Future<void> _refresh() async {
+    setState(() => _filter = AlertFilter.all);
+    await _loadAlerts();
+  }
+
+  int get _unreadCount => [
+    ..._localAlerts,
+    ..._alerts,
+  ].where((alert) => !alert.read && !_readAlertIds.contains(alert.id)).length;
+
+  @override
   Widget build(BuildContext context) {
+    final allAlerts = [..._localAlerts, ..._alerts];
     final visibleAlerts = _filter == AlertFilter.all
-        ? _alerts
-        : _alerts.where((alert) => alert.filter == _filter).toList();
+        ? allAlerts
+        : allAlerts.where((alert) => alert.filter == _filter).toList();
     return Column(
       children: [
         Container(
@@ -138,6 +166,16 @@ class _AlertsScreenState extends State<AlertsScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
               children: [
+                if (_loading)
+                  const Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (_failed)
+                  const Text(
+                    'Unable to load alerts. Pull to retry.',
+                    textAlign: TextAlign.center,
+                  ),
                 FilterTabs(
                   selected: _filter,
                   onChanged: (filter) => setState(() => _filter = filter),
@@ -150,6 +188,11 @@ class _AlertsScreenState extends State<AlertsScreen> {
                     color: alert.color,
                     textColor: alert.textColor,
                     body: alert.body,
+                    onViewed: () {
+                      setState(() => _readAlertIds.add(alert.id));
+                      NotificationStore.markRead([alert.id]);
+                      widget.onUnreadCountChanged?.call(_unreadCount);
+                    },
                   ),
               ],
             ),

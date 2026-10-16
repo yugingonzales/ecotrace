@@ -2,25 +2,26 @@ import 'package:flutter/material.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../models/event_quota.dart';
-import '../../models/field_event_seed.dart';
 import '../../models/local_event.dart';
 import '../../widgets/events/leave_confirmation_card.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({
     super.key,
+    required this.events,
     required this.joinedEventIds,
     required this.onLeave,
     required this.onMap,
   });
+  final List<LocalEvent> events;
   final Set<String> joinedEventIds;
   final ValueChanged<LocalEvent> onLeave;
   final VoidCallback onMap;
 
   @override
   Widget build(BuildContext context) {
-    final events = buildFieldEventSeed()
-        .where((e) => joinedEventIds.contains(e.id))
+    final events = this.events
+        .where((event) => joinedEventIds.contains(event.id))
         .toList();
     final now = DateTime.now();
     final active = events.where(
