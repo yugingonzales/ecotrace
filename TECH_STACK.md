@@ -129,7 +129,7 @@ The API reads database connection values from environment variables such as `DB_
 
 - **Mobile app → API:** the Flutter app calls the configured REST base URL, normally using `/api` endpoints on port `3000`. Android emulators can reach the host machine through `10.0.2.2`; physical devices use the host computer's LAN address.
 - **Admin web app → API:** the browser calls `/api` through the Vite development proxy, avoiding cross-origin requests during local development.
-- **Authentication:** the API issues JWTs. Authenticated clients send the token as a Bearer token.
+- **Authentication:** the API issues JWTs. Authenticated clients send the token as a Bearer token. `EventClient` uses it for joined-event, join, and leave requests; `AlertsScreen` uses it for the published alert feed.
 - **Configuration:** API URLs, ports, database settings, JWT settings, and CORS settings are controlled through environment variables or client configuration files.
 
 ## Quality and verification tools
@@ -171,5 +171,5 @@ npm run dev
 - The `.figma/` directory in the admin project is part of the Vite configuration and must remain available unless that configuration is refactored.
 - This document records technologies confirmed by the current project configuration; it does not list planned or unimplemented services.
 
-_Last reviewed: 2026-10-13._
+_Last reviewed: 2026-10-16._
 

@@ -1,3 +1,14 @@
+import 'dart:convert';
+
+const defaultMonitoringMetrics = <String>[
+  'GPS Coordinates',
+  'Status Photo',
+  'Tree Height (cm)',
+  'Growth Stage',
+  'Diameter Measurement (cm)',
+  'Survival Status',
+];
+
 class LocalEvent {
   const LocalEvent({
     required this.id,
@@ -10,6 +21,8 @@ class LocalEvent {
     this.endDate,
     this.targetTrees = 0,
     this.verifiedTrees = 0,
+    this.monitoringMetrics = defaultMonitoringMetrics,
+    this.boundary = const <List<double>>[],
     this.warm = false,
   });
 
@@ -29,6 +42,10 @@ class LocalEvent {
 
   /// Trees verified by the current staff member for this event.
   final int verifiedTrees;
+  final List<String> monitoringMetrics;
+
+  /// Persisted event geofence as [latitude, longitude] vertices.
+  final List<List<double>> boundary;
 
   /// The final day of the activity. A missing value means the activity is
   /// scheduled for one day only.
@@ -50,6 +67,14 @@ class LocalEvent {
 
     final start = parseDate(json['start_date'] as String);
     final end = parseDate(json['end_date'] as String);
+    final rawBoundary = json['event_boundary'];
+    final boundary = rawBoundary is String
+        ? (jsonDecode(rawBoundary) as List<dynamic>? ?? const <dynamic>[])
+        : rawBoundary;
+    final rawMetrics = json['monitoring_metrics'];
+    final metrics = rawMetrics is String
+        ? (jsonDecode(rawMetrics) as List<dynamic>? ?? const <dynamic>[])
+        : rawMetrics;
     return LocalEvent(
       id: 'api-${json['event_id']}',
       date: start,
@@ -64,6 +89,12 @@ class LocalEvent {
       attendeeCount: (json['attendee_count'] as num?)?.toInt() ?? 0,
       targetTrees: (json['trees_per_student'] as num?)?.toInt() ?? 0,
       verifiedTrees: (json['verified_trees'] as num?)?.toInt() ?? 0,
+      monitoringMetrics: metrics is List
+          ? metrics.whereType<String>().toList()
+          : defaultMonitoringMetrics,
+      boundary: boundary is List
+          ? boundary.whereType<List>().map((point) => point.map((value) => (value as num).toDouble()).toList()).where((point) => point.length == 2).toList()
+          : const <List<double>>[],
     );
   }
 }

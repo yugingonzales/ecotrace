@@ -66,21 +66,22 @@ dark-green contrast, lemon action accents, readable form spacing.
 
 ## 2. Current status
 
-**Current gates (2026-10-06): `flutter analyze` clean · `flutter test` 87 passed, 2 known login-widget failures.**
+**Current gates (2026-10-16): `flutter analyze` clean; targeted participation/auth tests pass.**
 
-The two failures are stale tests that submit login to the real HTTP endpoint in
-Flutter's test binding. They need a mocked authentication client; the
-application's production authentication flow is not being bypassed.
+The full Flutter suite still has pre-existing `pumpAndSettle` timeout failures in
+shell/connectivity tests. These are runtime test-harness issues rather than
+analyzer or compile errors; the earlier HTTP-dependent login-widget failures are
+not the current participation blocker.
 
 | Area | State |
 |---|---|
 | Entry point | `EcoTraceApp` launches into `SplashScreen`; it restores an opted-in session into `AppShell`, or transitions to staff login and then `AppShell` on submit |
 | Shell | Bottom nav with 5 slots; centre action is **"View field progress"**, not the scanner; dashboard actions remain in-shell and the dashboard profile icon is intentionally omitted |
-| Events | Inline search (`events-search-field`), date-aware rolling strip and real month grid, collapsing strip, joined-only filter, right-aligned calendar action, multi-day start/end markers, participation receipt |
+| Events | Inline search (`events-search-field`), date-aware rolling strip and real month grid, collapsing strip, joined-only filter, right-aligned calendar action, multi-day start/end markers, participation receipt; authenticated join/leave and joined-event synchronization are connected to the API |
 | Map | Real `flutter_map` campus map, 23 admin trees, OSM/Esri toggle, zone+status filters, left-rail controls, OSRM road routing |
 | Verification | Mode choice → proximity gate → 4-step wizard (status, measurements, 3–5 camera photos, review) |
 | Incidents | Linked-tree form with validated selections, description, camera evidence, draft save feedback |
-| Alerts | Static list; tabs now genuinely filter |
+| Alerts | Authenticated API feed with Bearer token attachment, local notification merge, pull-to-refresh, filter tabs, and unread-count callbacks |
 | Profile | State-backed `UserProfile` with editable email, home address, contact number |
 | Connectivity | Three-state model — `online` requires transport **and** a passing HTTP probe |
 | Field progress | Theme-native dashboard with user quota, verified trees, event-wide target/progress/participant metrics, and a map handoff for verifying more trees |
@@ -557,8 +558,8 @@ report".
 | F-2a | Pick + add a local-store dependency (`shared_preferences` now; escalate to `sqflite` when record counts grow) | ⬜ |
 | F-2b | Make **verification draft save** real (`manual_entry_sheet._saveDraft` currently only SnackBars) | ⬜ |
 | F-2c | Make **incident draft save** real | ⬜ |
-| F-2d | Persist **event participation** (`EventsScreen._joinedEvents` is an in-memory `Set<String>`) | ⬜ |
-| F-2e | Add an offline queue so nothing is lost before the backend exists | ⬜ |
+| F-2d | Persist **event participation** in the API and local joined-event cache | ✅ implemented 2026-10-16 |
+| F-2e | Add an offline queue so failed participation mutations are retried when connectivity returns | ⬜ |
 
 ### Tier 2 — wire screens to the domain models
 
@@ -566,7 +567,7 @@ report".
 |---|---|---|
 | F-3a | Incident form: real controllers/validation, replace remaining stubs | ⬜ |
 | F-3b | Bind the incident form to `IncidentReport` / `IncidentType` / `IncidentSeverity` (currently stringly-typed) | ⬜ |
-| F-4 | Alerts unread state / backend | ⬜ |
+| F-4 | Extend alerts beyond the authenticated published feed (for example, broader notification synchronization) | ⬜ |
 
 ### Tier 3 — architecture & state management
 
@@ -618,13 +619,35 @@ confirmed authentication contract:
 The Flutter client now matches this contract for login, registration, JWT session
 persistence, session restoration, logout, and authenticated profile presentation.
 The remaining limitations are secure platform token storage, token expiry/refresh,
-and backend synchronization for domain features. The admin portal's own login is
-restricted to users whose returned role is `admin`; public registrations are not
-allowed into the admin area.
+and verification/tree-progress synchronization. Local live runtime verification of
+the participation migration and API contract completed on 2026-10-18. The admin
+portal's own login is restricted to users whose returned role is `admin`; public
+registrations are not allowed into the admin area.
+
+### Authenticated event participation and alerts (2026-10-16)
+
+`EventClient` uses the stored JWT for the following API operations:
+
+- `GET /api/events/joined` restores events whose participation status is `joined`.
+- `POST /api/events/:id/join` joins an event and updates the attendee count server-side.
+- `DELETE /api/events/:id/join` leaves an event and marks participation cancelled.
+
+The events screen and dashboard use the joined response to keep joined-only state
+consistent after refresh. `AlertsScreen` attaches `Authorization: Bearer <JWT>`
+to `GET /api/alerts`, merges the published server feed with local notifications,
+and updates the unread-count callback. Joining an event also creates the server
+alert described by the API route.
+
+The corresponding database change is
+`C:\xampp\htdocs\projects\ecotrace_admin\server\migrations\011_participation.sql`.
+Apply it with `cd server && npm run migrate` before a live participation smoke
+test. This migration was confirmed already applied in the local MariaDB
+verification on 2026-10-18. The joined-event response currently exposes
+`verified_trees: 0` until verification aggregation is implemented.
 
 ### Admin integration verification
 
-**Updated 2026-10-09:** Complete setup guides are now available in the admin portal repository.
+**Updated 2026-10-16:** Complete setup guides and the participation migration are available in the admin portal repository.
 
 The admin project is at `C:\xampp\htdocs\projects\ecotrace_admin`. Start its API from
 `C:\xampp\htdocs\projects\ecotrace_admin\server` with `npm run dev`; it listens on
@@ -696,7 +719,7 @@ See `C:\xampp\htdocs\projects\ecotrace_admin\ADMIN_SETUP.md` for setup instructi
 ### Known data-integrity caveats
 
 - Verification records are **lost on restart** (`MapScreen._verifiedStatuses`).
-- Event participation is **lost on restart** (`_joinedEvents`).
+- Joined-event participation is restored from the local cache; failed mutations are not queued offline.
 - The proximity gate is **disabled**; records made now have no position proof.
 - Authentication passwords are sent only to the API; the mobile session stores no password or password hash.
 

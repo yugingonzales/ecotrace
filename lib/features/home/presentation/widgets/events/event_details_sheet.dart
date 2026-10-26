@@ -99,6 +99,29 @@ class EventDetailsSheet extends StatelessWidget {
             height: 1.45,
           ),
         ),
+        if (event.monitoringMetrics.isNotEmpty) ...[
+          const Text(
+            'Monitoring team must collect',
+            style: TextStyle(
+              color: Color(0xFF0A231C),
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: event.monitoringMetrics
+                .map((metric) => Chip(
+                      label: Text(metric),
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: const Color(0xFFE8F0EC),
+                    ))
+                .toList(),
+          ),
+          const SizedBox(height: 12),
+        ],
         const SizedBox(height: 20),
         SizedBox(
           width: double.infinity,

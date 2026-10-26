@@ -67,6 +67,7 @@ class _AppShellState extends State<AppShell> {
       ),
       _LazyTab(active: _index == 1, builder: (context) => const MapScreen()),
       AlertsScreen(
+        isOpen: _index == 2,
         onUnreadCountChanged: (count) {
           if (mounted) setState(() => _unreadNotificationCount = count);
         },

@@ -18,7 +18,6 @@ class FilterTabs extends StatelessWidget {
     final tabs = <(String, AlertFilter)>[
       ('All', AlertFilter.all),
       ('Recent', AlertFilter.recent),
-      ('By date', AlertFilter.byDate),
     ];
     return Row(
       children: tabs

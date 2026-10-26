@@ -13,9 +13,14 @@ import '../../widgets/alerts/filter_tabs.dart';
 import '../../widgets/shared/top_bar.dart';
 
 class AlertsScreen extends StatefulWidget {
-  const AlertsScreen({super.key, this.onUnreadCountChanged});
+  const AlertsScreen({
+    super.key,
+    this.onUnreadCountChanged,
+    this.isOpen = false,
+  });
 
   final ValueChanged<int>? onUnreadCountChanged;
+  final bool isOpen;
 
   @override
   State<AlertsScreen> createState() => _AlertsScreenState();
@@ -41,7 +46,10 @@ class _AlertsScreenState extends State<AlertsScreen> {
       if (response.statusCode != 200) throw Exception('alert request failed');
       final body = jsonDecode(response.body) as Map<String, dynamic>;
       final items = body['items'] as List<dynamic>? ?? const <dynamic>[];
-      final localItems = await NotificationStore.read();
+      final session = await AuthSession.restore();
+      final localItems = session == null
+          ? <Map<String, dynamic>>[]
+          : await NotificationStore.read(session.user.id);
       if (!mounted) return;
       setState(() {
         _localAlerts = localItems.map(AlertData.fromLocal).toList();
@@ -68,16 +76,33 @@ class _AlertsScreenState extends State<AlertsScreen> {
     _loadAlerts();
   }
 
+  @override
+  void didUpdateWidget(AlertsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.isOpen && widget.isOpen) _markAllAsRead();
+  }
+
+  Future<void> _markAllAsRead() async {
+    final ids = [..._localAlerts, ..._alerts].map((alert) => alert.id).toSet();
+    if (ids.isEmpty) return;
+    setState(() => _readAlertIds.addAll(ids));
+    // Server read state is authoritative; local state is updated in memory.
+    widget.onUnreadCountChanged?.call(_unreadCount);
+  }
+
   /// Pull-to-refresh re-reads the published alert feed from the server.
   Future<void> _refresh() async {
     setState(() => _filter = AlertFilter.all);
     await _loadAlerts();
   }
 
-  int get _unreadCount => [
-    ..._localAlerts,
-    ..._alerts,
-  ].where((alert) => !alert.read && !_readAlertIds.contains(alert.id)).length;
+  int get _unreadCount {
+    final seen = <String>{};
+    return [..._localAlerts, ..._alerts]
+        .where((alert) => seen.add(alert.id))
+        .where((alert) => !alert.read && !_readAlertIds.contains(alert.id))
+        .length;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -190,7 +215,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                     body: alert.body,
                     onViewed: () {
                       setState(() => _readAlertIds.add(alert.id));
-                      NotificationStore.markRead([alert.id]);
+                      // Read state is persisted by the authenticated API.
                       widget.onUnreadCountChanged?.call(_unreadCount);
                     },
                   ),

@@ -5,6 +5,7 @@ import '../../../../../core/theme/app_theme.dart';
 import '../../../../field_verification/domain/measurement_limits.dart';
 import '../../../../field_verification/domain/tree_record.dart';
 import '../../../../field_verification/domain/verification_draft.dart';
+import '../../models/local_event.dart';
 import '../../models/map_tree.dart';
 import '../../widgets/verification/evidence_capture.dart';
 import '../../widgets/verification/step_rail.dart';
@@ -18,12 +19,20 @@ class VerificationWizardScreen extends StatefulWidget {
     super.key,
     required this.tree,
     this.distanceFromTreeMeters,
+    this.monitoringMetrics = defaultMonitoringMetrics,
   });
 
   final MapTree tree;
 
   /// Distance reported by the proximity gate, carried through for the record.
   final double? distanceFromTreeMeters;
+  final List<String> monitoringMetrics;
+
+  bool get collectsMeasurements => monitoringMetrics.any(
+    (metric) =>
+        metric == 'Tree Height (cm)' || metric == 'Diameter Measurement (cm)',
+  );
+  bool get collectsPhotos => monitoringMetrics.contains('Status Photo');
 
   @override
   State<VerificationWizardScreen> createState() =>
@@ -80,6 +89,14 @@ class _VerificationWizardScreenState extends State<VerificationWizardScreen> {
       setState(() => _step = VerificationStep.review);
       return;
     }
+    if (!widget.collectsMeasurements) {
+      setState(
+        () => _step = widget.collectsPhotos
+            ? VerificationStep.evidence
+            : VerificationStep.review,
+      );
+      return;
+    }
     _goTo(VerificationStep.measurements);
   }
 
@@ -91,7 +108,9 @@ class _VerificationWizardScreenState extends State<VerificationWizardScreen> {
       setState(() => _step = VerificationStep.status);
       return;
     }
-    if (_draft.needsEvidence && _draft.photoPaths.length < 3) {
+    if (widget.collectsPhotos &&
+        _draft.needsEvidence &&
+        _draft.photoPaths.length < 3) {
       setState(() => _step = VerificationStep.evidence);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -139,7 +158,9 @@ class _VerificationWizardScreenState extends State<VerificationWizardScreen> {
   /// `onProgress` callback; stepping it here keeps the wizard's progress UI
   /// honest about what the final code will look like.
   Future<void> _upload() async {
-    final files = _draft.needsEvidence ? _draft.photoPaths.length + 1 : 1;
+    final files = widget.collectsPhotos && _draft.needsEvidence
+        ? _draft.photoPaths.length + 1
+        : 1;
     for (var sent = 1; sent <= files; sent++) {
       await Future<void>.delayed(const Duration(milliseconds: 350));
       if (mounted) setState(() => _uploadProgress = sent / files);
@@ -166,7 +187,12 @@ class _VerificationWizardScreenState extends State<VerificationWizardScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
                 child: StepRail(
-                  labels: ['Status', 'Measure', 'Evidence', 'Review'],
+                  labels: [
+                    'Status',
+                    if (widget.collectsMeasurements) 'Measure',
+                    if (widget.collectsPhotos) 'Evidence',
+                    'Review',
+                  ],
                   currentIndex: _step.index,
                 ),
               ),
@@ -194,12 +220,12 @@ class _VerificationWizardScreenState extends State<VerificationWizardScreen> {
                       dbh: _dbh,
                       crown: _crown,
                       notes: _notes,
-                      isMissing: isMissing,
+                      isMissing: isMissing || !widget.collectsMeasurements,
                     ),
                     VerificationStep.evidence => _EvidenceStep(
                       key: const ValueKey('step-evidence'),
                       photoPaths: _draft.photoPaths,
-                      isMissing: isMissing,
+                      isMissing: isMissing || !widget.collectsPhotos,
                       onChanged: (paths) => setState(
                         () => _draft = _draft.copyWith(photoPaths: paths),
                       ),
@@ -217,11 +243,23 @@ class _VerificationWizardScreenState extends State<VerificationWizardScreen> {
                 submitting: _submitting,
                 onBack: _step == VerificationStep.status
                     ? null
-                    : () => _goTo(VerificationStep.values[_step.index - 1]),
+                    : () => _goTo(
+                        _step == VerificationStep.review &&
+                                widget.collectsPhotos
+                            ? VerificationStep.evidence
+                            : VerificationStep.status,
+                      ),
                 onNext: switch (_step) {
                   VerificationStep.review => _submit,
                   VerificationStep.status => _advanceFromStatus,
-                  _ => () => _goTo(VerificationStep.values[_step.index + 1]),
+                  VerificationStep.measurements => () => _goTo(
+                    widget.collectsPhotos
+                        ? VerificationStep.evidence
+                        : VerificationStep.review,
+                  ),
+                  VerificationStep.evidence => () => _goTo(
+                    VerificationStep.review,
+                  ),
                 },
               ),
             ],

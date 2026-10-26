@@ -83,6 +83,9 @@ class BottomNavigation extends StatelessWidget {
                   selectedIndex: selectedIndex,
                   onSelected: onSelected,
                   compact: compact,
+                  badge: unreadCount > 0
+                      ? (unreadCount > 99 ? '99+' : '$unreadCount')
+                      : null,
                 ),
               ),
               const SizedBox(width: 4),

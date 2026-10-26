@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationStore {
-  static const _key = 'ecotrace_local_notifications';
+  static String _keyFor(int userId) => 'ecotrace_local_notifications_$userId';
 
-  static Future<List<Map<String, dynamic>>> read() async {
+  static Future<List<Map<String, dynamic>>> read(int userId) async {
     final preferences = await SharedPreferences.getInstance();
-    final values = preferences.getStringList(_key) ?? const <String>[];
+    final values = preferences.getStringList(_keyFor(userId)) ?? const <String>[];
     return values
         .map((value) => jsonDecode(value))
         .whereType<Map>()
@@ -21,10 +21,11 @@ class NotificationStore {
     required String body,
     required String label,
     required String alertType,
+    required int userId,
     String? eventName,
   }) async {
     final preferences = await SharedPreferences.getInstance();
-    final current = await read();
+    final current = await read(userId);
     current.removeWhere((item) => item['id'] == id);
     current.insert(0, {
       'id': id,
@@ -37,18 +38,18 @@ class NotificationStore {
       'read': false,
     });
     await preferences.setStringList(
-      _key,
+      _keyFor(userId),
       current.take(100).map(jsonEncode).toList(),
     );
   }
 
-  static Future<void> markRead(Iterable<String> ids) async {
+  static Future<void> markRead(int userId, Iterable<String> ids) async {
     final preferences = await SharedPreferences.getInstance();
     final readIds = ids.toSet();
-    final current = await read();
+    final current = await read(userId);
     for (final item in current) {
       if (readIds.contains(item['id'])) item['read'] = true;
     }
-    await preferences.setStringList(_key, current.map(jsonEncode).toList());
+    await preferences.setStringList(_keyFor(userId), current.map(jsonEncode).toList());
   }
 }

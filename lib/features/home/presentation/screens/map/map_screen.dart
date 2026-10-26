@@ -13,6 +13,7 @@ import '../../../../../core/theme/app_theme.dart';
 import '../../../../field_verification/domain/tree_record.dart';
 import '../../models/campus_data.dart';
 import '../../models/map_tree.dart';
+import '../../data/tree_inventory_client.dart';
 import '../../widgets/map/map_canvas.dart';
 import '../../widgets/map/map_filter_panel.dart';
 import '../../widgets/map/map_header.dart';
@@ -45,7 +46,9 @@ class _MapScreenState extends State<MapScreen> {
   String? _zoneFilter;
   TreeStatus? _statusFilter;
   MapTree? _selectedTree;
+  List<MapTree> _inventoryTrees = fallbackTestTrees;
   Position? _currentPosition;
+  bool _loadingTrees = true;
   Set<String>? _nearbyTreeIds;
   List<List<LatLng>> _routeSegments = const [];
   bool _routing = false;
@@ -69,13 +72,38 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   List<MapTree> get _trees => _verifiedStatuses.isEmpty
-      ? campusTrees
+      ? _inventoryTrees
       : [
-          for (final tree in campusTrees)
+          for (final tree in _inventoryTrees)
             _verifiedStatuses[tree.id] == null
                 ? tree
                 : tree.copyWith(status: _verifiedStatuses[tree.id]),
         ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTreeInventory();
+  }
+
+  Future<void> _loadTreeInventory() async {
+    try {
+      final trees = await TreeInventoryClient.fetch();
+      if (!mounted) return;
+      if (!mounted) return;
+      setState(() {
+        _inventoryTrees = trees.isEmpty ? fallbackTestTrees : trees;
+        _loadingTrees = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _inventoryTrees = fallbackTestTrees;
+          _loadingTrees = false;
+        });
+      }
+    }
+  }
 
   int get _activeFilterCount =>
       (_zoneFilter == null ? 0 : 1) + (_statusFilter == null ? 0 : 1);
@@ -409,6 +437,15 @@ class _MapScreenState extends State<MapScreen> {
           isTracking: _tracking,
           routeSegments: _routeSegments,
         ),
+        if (_loadingTrees)
+          Positioned(
+            top: headerTop + MapHeader.height + 8,
+            left: 0,
+            right: 0,
+            child: const Center(
+              child: _MapBusyChip(message: 'Loading tree inventory'),
+            ),
+          ),
         if (_locating || _routing)
           Positioned(
             top: headerTop + MapHeader.height + 8,
@@ -511,6 +548,7 @@ class _MapScreenState extends State<MapScreen> {
             child: MapFilterPanel(
               zoneFilter: _zoneFilter,
               statusFilter: _statusFilter,
+              trees: _inventoryTrees,
               onZoneSelected: _setZoneFilter,
               onStatusSelected: _setStatusFilter,
             ),

@@ -79,7 +79,8 @@ class _MapCanvasState extends State<MapCanvas> {
     ),
   );
 
-  List<MapTree> get _visibleTrees => (widget.trees ?? campusTrees)
+  List<MapTree> get _visibleTrees =>
+      (widget.trees ?? const <MapTree>[])
       .where(
         (tree) => widget.zoneFilter == null || tree.zone == widget.zoneFilter,
       )

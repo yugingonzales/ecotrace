@@ -82,12 +82,14 @@ class MapFilterPanel extends StatelessWidget {
     required this.statusFilter,
     required this.onZoneSelected,
     required this.onStatusSelected,
+    required this.trees,
   });
 
   final String? zoneFilter;
   final TreeStatus? statusFilter;
   final ValueChanged<String?> onZoneSelected;
   final ValueChanged<TreeStatus?> onStatusSelected;
+  final List<MapTree> trees;
 
   static const _sectionStyle = TextStyle(
     color: Color(0xFF7A9185),
@@ -97,10 +99,10 @@ class MapFilterPanel extends StatelessWidget {
   );
 
   int _zoneCount(String name) =>
-      campusTrees.where((tree) => tree.zone == name).length;
+      trees.where((tree) => tree.zone == name).length;
 
   int _statusCount(TreeStatus status) =>
-      campusTrees.where((tree) => tree.status == status).length;
+      trees.where((tree) => tree.status == status).length;
 
   @override
   Widget build(BuildContext context) => GestureDetector(
@@ -137,7 +139,7 @@ class MapFilterPanel extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                '${campusTrees.length} trees',
+                '${trees.length} trees',
                 style: const TextStyle(
                   color: Color(0xFF7A9185),
                   fontSize: 10,
@@ -155,7 +157,7 @@ class MapFilterPanel extends StatelessWidget {
             children: [
               _ZonePill(
                 label: 'All zones',
-                count: campusTrees.length,
+                count: trees.length,
                 selected: zoneFilter == null,
                 onTap: () => onZoneSelected(null),
               ),
@@ -174,7 +176,7 @@ class MapFilterPanel extends StatelessWidget {
           const SizedBox(height: 4),
           _StatusTile(
             label: 'All statuses',
-            count: campusTrees.length,
+            count: trees.length,
             color: EcoTraceColors.forest,
             selected: statusFilter == null,
             onTap: () => onStatusSelected(null),

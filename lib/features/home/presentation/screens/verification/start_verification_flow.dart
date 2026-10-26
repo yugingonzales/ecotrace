@@ -5,6 +5,7 @@ import '../../../../field_verification/domain/tree_record.dart';
 import '../../../../field_verification/domain/verification_draft.dart';
 import '../../../../field_verification/domain/verification_proximity.dart';
 import '../../models/map_tree.dart';
+import '../../models/local_event.dart';
 import 'analysis_mode_screen.dart';
 import 'verification_wizard_screen.dart';
 
@@ -15,10 +16,12 @@ class StartVerificationFlow extends StatefulWidget {
     super.key,
     required this.tree,
     this.positionSource,
+    this.monitoringMetrics = defaultMonitoringMetrics,
   });
 
   final MapTree tree;
   final PositionSource? positionSource;
+  final List<String> monitoringMetrics;
 
   @override
   State<StartVerificationFlow> createState() => _StartVerificationFlowState();
@@ -67,6 +70,7 @@ class _StartVerificationFlowState extends State<StartVerificationFlow> {
         builder: (_) => VerificationWizardScreen(
           tree: widget.tree,
           distanceFromTreeMeters: _result?.meters,
+          monitoringMetrics: widget.monitoringMetrics,
         ),
       ),
     );

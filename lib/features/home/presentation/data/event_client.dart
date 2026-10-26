@@ -99,6 +99,8 @@ class EventClient {
     'trees_per_student': event.targetTrees,
     'attendee_count': event.attendeeCount,
     'verified_trees': event.verifiedTrees,
+    'monitoring_metrics': event.monitoringMetrics,
+    'event_boundary': event.boundary,
   };
 
   static String _date(DateTime date) =>

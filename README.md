@@ -9,7 +9,7 @@ review workflow.
 > [`DOCUMENTATION.md`](DOCUMENTATION.md) is the single source of truth for the
 > admin web app/backend handoff and the Flutter application.
 >
-> **Updated 2026-10-09:** Backend connection guides now available in the admin portal at
+> **Updated 2026-10-16:** Authenticated event participation and joined-event synchronization are implemented across the Flutter app and Node/MariaDB API. Backend connection guides are available in the admin portal at
 > `C:\xampp\htdocs\projects\ecotrace_admin\SERVER_STARTUP_AND_FLUTTER_CONNECTION.md`
 
 ## Quick facts
@@ -30,7 +30,7 @@ review workflow.
 cd C:\flutter_workspace\ecotrace
 flutter pub get
 flutter analyze      # clean
-flutter test         # 87 passed; 2 login-widget tests require HTTP mocking
+flutter test         # targeted tests pass; full suite retains known shell/connectivity pumpAndSettle timeouts
 ```
 
 ## Mobile application
@@ -43,8 +43,10 @@ persisted. Sign-out clears the stored session and removes authenticated routes.
 
 The current UI includes events, a 23-tree campus map, routing, field
 verification, incident reporting, alerts, profile, connectivity feedback, and
-a field-progress dashboard. Verification records and event participation remain
-local preview state until their API synchronization is implemented.
+a field-progress dashboard. Authenticated users can join and leave events; the
+app loads and caches joined-event state, updates the dashboard/event filters,
+and refreshes authenticated alerts after participation. Verification records
+and tree-progress aggregation remain outside the current synchronization scope.
 
 ## Admin web app and backend
 
@@ -98,4 +100,4 @@ not commit or push changes automatically.
 
 ---
 
-**Last Updated:** 2026-10-09
+**Last Updated:** 2026-10-16

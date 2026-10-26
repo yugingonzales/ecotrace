@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum AlertFilter { all, recent, byDate }
+enum AlertFilter { all, recent }
 
 class AlertData {
   const AlertData({
@@ -28,12 +28,14 @@ class AlertData {
   final String? eventName;
   final bool read;
 
+  bool get hasDetails => body.trim().isNotEmpty &&
+      (eventName != null || label == 'ANNOUNCEMENT' || label == 'EVENT UPDATE' || label == 'PARTICIPATION');
+
   factory AlertData.fromApi(Map<String, dynamic> json) {
     final type = json['alert_type'] as String? ?? 'info';
     final published =
         DateTime.tryParse(json['published_at'] as String? ?? '') ??
         DateTime.now();
-    final recent = DateTime.now().difference(published).inDays < 7;
     final colors = switch (type) {
       'success' => (Color(0xFFD7F5E3), Color(0xFF15803D)),
       'warning' => (Color(0xFFFEF3C7), Color(0xFFD97706)),
@@ -48,7 +50,7 @@ class AlertData {
       color: colors.$1,
       textColor: colors.$2,
       body: json['alert_body'] as String? ?? '',
-      filter: recent ? AlertFilter.recent : AlertFilter.byDate,
+      filter: AlertFilter.recent,
       eventName: json['event_title'] as String?,
     );
   }
@@ -72,9 +74,7 @@ class AlertData {
       color: colors.$1,
       textColor: colors.$2,
       body: json['body'] as String? ?? '',
-      filter: DateTime.now().difference(published).inDays < 7
-          ? AlertFilter.recent
-          : AlertFilter.byDate,
+      filter: AlertFilter.recent,
       read: json['read'] as bool? ?? false,
       eventName: json['eventName'] as String?,
     );
