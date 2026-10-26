@@ -28,8 +28,12 @@ class AlertData {
   final String? eventName;
   final bool read;
 
-  bool get hasDetails => body.trim().isNotEmpty &&
-      (eventName != null || label == 'ANNOUNCEMENT' || label == 'EVENT UPDATE' || label == 'PARTICIPATION');
+  bool get hasDetails =>
+      body.trim().isNotEmpty &&
+      (eventName != null ||
+          label == 'ANNOUNCEMENT' ||
+          label == 'EVENT UPDATE' ||
+          label == 'PARTICIPATION');
 
   factory AlertData.fromApi(Map<String, dynamic> json) {
     final type = json['alert_type'] as String? ?? 'info';
@@ -42,6 +46,12 @@ class AlertData {
       'error' => (Color(0xFFFEE2E2), Color(0xFFB91C1C)),
       _ => (Color(0xFFE0F2FE), Color(0xFF0284C7)),
     };
+    final rawRead = json['read'];
+    final isRead = rawRead is bool
+        ? rawRead
+        : rawRead is num
+            ? rawRead != 0
+            : rawRead?.toString().toLowerCase() == 'true';
     return AlertData(
       id: 'api-${json['alert_id']}',
       title: json['alert_title'] as String? ?? 'EcoTrace alert',
@@ -51,6 +61,7 @@ class AlertData {
       textColor: colors.$2,
       body: json['alert_body'] as String? ?? '',
       filter: AlertFilter.recent,
+      read: isRead,
       eventName: json['event_title'] as String?,
     );
   }

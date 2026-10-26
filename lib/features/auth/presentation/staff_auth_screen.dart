@@ -125,10 +125,11 @@ class _StaffAuthScreenState extends State<StaffAuthScreen> {
 
     try {
       final response = await _authenticate();
-      if (_loginMode && _keepSignedIn) {
+      if (_loginMode) {
+        // The shell needs the JWT for authenticated API calls, including alerts,
+        // during the current session. Saving it here is required even when the
+        // user does not opt into the "Keep me signed in" preference.
         await AuthSession.save(response);
-      } else if (_loginMode) {
-        await AuthSession.clear();
       }
       if (!mounted) return;
       Navigator.of(context)

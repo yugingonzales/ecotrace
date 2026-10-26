@@ -97,19 +97,23 @@ class _EventsScreenState extends State<EventsScreen>
       final loaded = items
           .map((item) => LocalEvent.fromApi(item as Map<String, dynamic>))
           .toList();
+      final session = await AuthSession.restore();
       for (final event in loaded) {
         if (widget.joinedEventIds.contains(event.id) &&
             event.effectiveEndDate.difference(DateTime.now()).inDays <= 2 &&
             event.effectiveEndDate.isAfter(DateTime.now())) {
-          await NotificationStore.add(
-            id: 'event-closing-${event.id}',
-            title: 'Event closing soon',
-            body:
-                '${event.title} ends on ${event.effectiveEndDate.month}/${event.effectiveEndDate.day}.',
-            label: 'EVENT',
-            alertType: 'warning',
-            eventName: event.title,
-          );
+          if (session != null) {
+            await NotificationStore.add(
+              id: 'event-closing-${event.id}',
+              title: 'Event closing soon',
+              body:
+                  '${event.title} ends on ${event.effectiveEndDate.month}/${event.effectiveEndDate.day}.',
+              label: 'EVENT',
+              alertType: 'warning',
+              userId: session.user.id,
+              eventName: event.title,
+            );
+          }
         }
       }
       if (!mounted) return;
@@ -274,14 +278,18 @@ class _EventsScreenState extends State<EventsScreen>
       }
       final next = {..._joinedEvents}..remove(event.id);
       widget.onJoinedEventsChanged(next);
-      await NotificationStore.add(
-        id: 'participation-left-${event.id}',
-        title: 'Participation cancelled',
-        body: 'You left ${event.title}.',
-        label: 'PARTICIPATION',
-        alertType: 'warning',
-        eventName: event.title,
-      );
+      final session = await AuthSession.restore();
+      if (session != null) {
+        await NotificationStore.add(
+          id: 'participation-left-${event.id}',
+          title: 'Participation cancelled',
+          body: 'You left ${event.title}.',
+          label: 'PARTICIPATION',
+          alertType: 'warning',
+          userId: session.user.id,
+          eventName: event.title,
+        );
+      }
       if (!mounted) return;
       await showParticipationReceipt(context, event, leaving: true);
       return;
@@ -298,14 +306,18 @@ class _EventsScreenState extends State<EventsScreen>
     }
     final next = {..._joinedEvents}..add(event.id);
     widget.onJoinedEventsChanged(next);
-    await NotificationStore.add(
-      id: 'participation-joined-${event.id}',
-      title: 'Participation confirmed',
-      body: 'You joined ${event.title}.',
-      label: 'PARTICIPATION',
-      alertType: 'success',
-      eventName: event.title,
-    );
+    final session = await AuthSession.restore();
+    if (session != null) {
+      await NotificationStore.add(
+        id: 'participation-joined-${event.id}',
+        title: 'Participation confirmed',
+        body: 'You joined ${event.title}.',
+        label: 'PARTICIPATION',
+        alertType: 'success',
+        userId: session.user.id,
+        eventName: event.title,
+      );
+    }
     if (!mounted) return;
     await showParticipationReceipt(context, event);
   }
