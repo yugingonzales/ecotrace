@@ -16,10 +16,12 @@ class AlertsScreen extends StatefulWidget {
   const AlertsScreen({
     super.key,
     this.onUnreadCountChanged,
+    this.onAction,
     this.isOpen = false,
   });
 
   final ValueChanged<int>? onUnreadCountChanged;
+  final ValueChanged<AlertData>? onAction;
   final bool isOpen;
 
   @override
@@ -33,6 +35,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
   bool _failed = false;
   final Set<String> _readAlertIds = <String>{};
   List<AlertData> _localAlerts = <AlertData>[];
+  int? _userId;
 
   Future<void> _loadAlerts() async {
     try {
@@ -50,8 +53,15 @@ class _AlertsScreenState extends State<AlertsScreen> {
       final localItems = session == null
           ? <Map<String, dynamic>>[]
           : await NotificationStore.read(session.user.id);
+      final readIds = session == null
+          ? <String>{}
+          : await NotificationStore.readIds(session.user.id);
       if (!mounted) return;
       setState(() {
+        _userId = session?.user.id;
+        _readAlertIds
+          ..clear()
+          ..addAll(readIds);
         _localAlerts = localItems.map(AlertData.fromLocal).toList();
         _alerts = items
             .map((item) => AlertData.fromApi(item as Map<String, dynamic>))
@@ -60,6 +70,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
         _failed = false;
       });
       widget.onUnreadCountChanged?.call(_unreadCount);
+      if (widget.isOpen) await _markAllAsRead();
     } catch (_) {
       if (mounted) {
         setState(() {
@@ -86,7 +97,8 @@ class _AlertsScreenState extends State<AlertsScreen> {
     final ids = [..._localAlerts, ..._alerts].map((alert) => alert.id).toSet();
     if (ids.isEmpty) return;
     setState(() => _readAlertIds.addAll(ids));
-    // Server read state is authoritative; local state is updated in memory.
+    final userId = _userId;
+    if (userId != null) await NotificationStore.markRead(userId, ids);
     widget.onUnreadCountChanged?.call(_unreadCount);
   }
 
@@ -94,6 +106,14 @@ class _AlertsScreenState extends State<AlertsScreen> {
   Future<void> _refresh() async {
     setState(() => _filter = AlertFilter.all);
     await _loadAlerts();
+  }
+
+  Future<void> _markAlertRead(String id) async {
+    if (!mounted) return;
+    setState(() => _readAlertIds.add(id));
+    final userId = _userId;
+    if (userId != null) await NotificationStore.markRead(userId, [id]);
+    if (mounted) widget.onUnreadCountChanged?.call(_unreadCount);
   }
 
   int get _unreadCount {
@@ -111,9 +131,9 @@ class _AlertsScreenState extends State<AlertsScreen> {
         ? allAlerts
         : allAlerts.where((alert) => alert.filter == _filter).toList();
     final liveAlert = allAlerts.cast<AlertData?>().firstWhere(
-          (alert) => alert?.notificationCode == 'event_live',
-          orElse: () => null,
-        );
+      (alert) => alert?.notificationCode == 'event_live',
+      orElse: () => null,
+    );
     return Column(
       children: [
         Container(
@@ -193,7 +213,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
             child: ListView(
               key: const Key('alerts-list'),
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 96),
               children: [
                 if (_loading)
                   const Padding(
@@ -217,7 +237,10 @@ class _AlertsScreenState extends State<AlertsScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.radar_rounded, color: Color(0xFF15803D)),
+                        const Icon(
+                          Icons.radar_rounded,
+                          color: Color(0xFF15803D),
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
@@ -243,11 +266,16 @@ class _AlertsScreenState extends State<AlertsScreen> {
                     color: alert.color,
                     textColor: alert.textColor,
                     body: alert.body,
-                    onViewed: () {
-                      setState(() => _readAlertIds.add(alert.id));
-                      // Read state is persisted by the authenticated API.
-                      widget.onUnreadCountChanged?.call(_unreadCount);
-                    },
+                    eventName: alert.eventName,
+                    notificationCode: alert.notificationCode,
+                    actionable: alert.isActionable && widget.onAction != null,
+                    onViewed: () => _markAlertRead(alert.id),
+                    onAction: alert.isActionable && widget.onAction != null
+                        ? () {
+                            _markAlertRead(alert.id);
+                            widget.onAction!(alert);
+                          }
+                        : null,
                   ),
               ],
             ),

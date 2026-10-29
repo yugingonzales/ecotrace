@@ -8,6 +8,7 @@ class TopBar extends StatelessWidget {
     this.onSearch,
     this.onFilter,
     this.onCalendar,
+    this.onAnnouncements,
     this.center,
     this.showSearch = true,
     this.showFilter = true,
@@ -17,6 +18,7 @@ class TopBar extends StatelessWidget {
   final VoidCallback? onSearch;
   final VoidCallback? onFilter;
   final VoidCallback? onCalendar;
+  final VoidCallback? onAnnouncements;
   final Widget? center;
   final bool showSearch;
   final bool showFilter;
@@ -67,30 +69,38 @@ class TopBar extends StatelessWidget {
             ),
           ),
         ),
-        if (showSearch || onCalendar != null || showFilter)
+        if (showSearch ||
+            onCalendar != null ||
+            onAnnouncements != null ||
+            showFilter)
           const SizedBox(width: 4),
       ] else
         const Spacer(),
-      if (showSearch || onCalendar != null || showFilter)
+      if (showSearch ||
+          onCalendar != null ||
+          onAnnouncements != null ||
+          showFilter)
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (showSearch) ...[
+            if (showSearch)
               _buildActionButton(
                 icon: Icons.search_rounded,
                 tooltip: 'Search',
                 onPressed: onSearch,
               ),
-              const SizedBox(width: 2),
-            ],
-            if (onCalendar != null) ...[
+            if (onAnnouncements != null)
+              _buildActionButton(
+                icon: Icons.campaign_rounded,
+                tooltip: 'Announcements',
+                onPressed: onAnnouncements,
+              ),
+            if (onCalendar != null)
               _buildActionButton(
                 icon: Icons.calendar_month_rounded,
                 tooltip: 'Calendar',
                 onPressed: onCalendar,
               ),
-              const SizedBox(width: 2),
-            ],
             if (showFilter)
               _buildActionButton(
                 icon: Icons.tune_rounded,
@@ -112,7 +122,11 @@ class TopBar extends StatelessWidget {
       padding: const EdgeInsets.all(7),
       constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
       icon: Icon(icon, color: Colors.white, size: 19),
-      style: IconButton.styleFrom(backgroundColor: Colors.white12),
+      style: IconButton.styleFrom(
+        backgroundColor: Colors.white12,
+        overlayColor: Colors.white24,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
       tooltip: tooltip,
     );
   }

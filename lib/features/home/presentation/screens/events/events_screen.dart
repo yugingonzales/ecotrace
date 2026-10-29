@@ -11,6 +11,7 @@ import '../../widgets/events/calendar_strip.dart';
 import '../../widgets/events/empty_events_state.dart';
 import '../../widgets/events/event_card.dart';
 import '../../widgets/events/event_details_sheet.dart';
+import '../../widgets/events/announcements_sheet.dart';
 import '../../widgets/events/full_calendar_sheet.dart';
 import '../../widgets/events/participation_receipt.dart';
 import '../../widgets/events/leave_confirmation_card.dart';
@@ -22,11 +23,15 @@ class EventsScreen extends StatefulWidget {
     super.key,
     this.joinedEventIds = const <String>{},
     this.onJoinedEventsChanged = _ignoreJoinedEvents,
+    this.focusEventId,
+    this.openManageActivityForEventId,
     this.active = true,
   });
 
   final Set<String> joinedEventIds;
   final ValueChanged<Set<String>> onJoinedEventsChanged;
+  final String? focusEventId;
+  final String? openManageActivityForEventId;
   final bool active;
 
   static void _ignoreJoinedEvents(Set<String> _) {}
@@ -94,13 +99,14 @@ class _EventsScreenState extends State<EventsScreen>
           if (session != null) {
             await NotificationStore.add(
               id: 'event-closing-${event.id}',
-              title: 'Event closing soon',
+              title: '${event.title} closing soon',
               body:
                   '${event.title} ends on ${event.effectiveEndDate.month}/${event.effectiveEndDate.day}.',
               label: 'EVENT',
               alertType: 'warning',
               userId: session.user.id,
               eventName: event.title,
+              eventId: event.id,
             );
           }
         }
@@ -130,6 +136,8 @@ class _EventsScreenState extends State<EventsScreen>
         }
         _selectedDay = AppDate.dayOf(DateTime.now());
       });
+      final focusId = widget.focusEventId;
+      if (focusId != null) focusEvent(focusId);
     } catch (_) {
       if (mounted) {
         setState(() {
@@ -141,6 +149,37 @@ class _EventsScreenState extends State<EventsScreen>
   }
 
   Set<String> get _joinedEvents => widget.joinedEventIds;
+
+  void focusEvent(String eventId) {
+    final event = _events.where((item) => item.id == eventId).firstOrNull;
+    if (event == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showDetails(event);
+    });
+  }
+
+  /// Opens the manage activity interface for a joined ongoing event.
+  /// Called when user taps an event_live notification.
+  void openManageActivity(String eventId) {
+    final event = _events.where((item) => item.id == eventId).firstOrNull;
+    if (event == null) return;
+
+    // Only open for joined events
+    if (!_joinedEvents.contains(event.id)) return;
+
+    // Check if event is ongoing (started but not finished)
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final isOngoing = !event.date.isAfter(today) &&
+                      !event.effectiveEndDate.isBefore(today);
+
+    if (!isOngoing) return;
+
+    // Open the event details sheet which serves as the manage activity interface
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showDetails(event);
+    });
+  }
 
   /// Distinct days covered by activities, including every day of a
   /// multi-day event so users can find it from any date in its range.
@@ -203,6 +242,18 @@ class _EventsScreenState extends State<EventsScreen>
   void didUpdateWidget(covariant EventsScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.active && !oldWidget.active) _refreshFromServer();
+    
+    // Handle manage activity request (e.g., from event_live notification)
+    if (widget.openManageActivityForEventId != oldWidget.openManageActivityForEventId &&
+        widget.openManageActivityForEventId != null) {
+      openManageActivity(widget.openManageActivityForEventId!);
+    }
+    
+    // Handle regular focus (details sheet)
+    if (widget.focusEventId != oldWidget.focusEventId &&
+        widget.focusEventId != null) {
+      focusEvent(widget.focusEventId!);
+    }
   }
 
   @override
@@ -385,6 +436,12 @@ class _EventsScreenState extends State<EventsScreen>
         .showSnackBar(SnackBar(content: Text(error.toString())));
   }
 
+  void _showEventNotStartedMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('This event has not started yet.')),
+    );
+  }
+
   Future<bool> _confirmLeave(LocalEvent event) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -421,6 +478,18 @@ class _EventsScreenState extends State<EventsScreen>
     return confirmed ?? false;
   }
 
+  Future<void> _openAnnouncements() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: EcoTraceColors.canvas,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (_) => const AnnouncementsSheet(),
+    );
+  }
+
   Future<void> _openFullCalendar() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -446,6 +515,10 @@ class _EventsScreenState extends State<EventsScreen>
       builder: (sheetContext) => EventDetailsSheet(
         event: event,
         joined: _joinedEvents.contains(event.id),
+        onUnavailable: () {
+          Navigator.pop(sheetContext);
+          _showEventNotStartedMessage();
+        },
         onConfirm: () => Navigator.pop(sheetContext, true),
       ),
     );
@@ -463,6 +536,7 @@ class _EventsScreenState extends State<EventsScreen>
         event.attendeeCount + (_joinedEvents.contains(event.id) ? 1 : 0),
     warm: event.warm,
     joined: _joinedEvents.contains(event.id),
+    onUnavailable: _showEventNotStartedMessage,
     eventLabel: _pastEvents.contains(event)
         ? null
         : !event.date.isAfter(AppDate.dayOf(DateTime.now()))
@@ -508,6 +582,7 @@ class _EventsScreenState extends State<EventsScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   TopBar(
+                    onAnnouncements: _openAnnouncements,
                     onCalendar: _openFullCalendar,
                     center: SizedBox(
                       height: 36,

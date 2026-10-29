@@ -9,10 +9,12 @@ class EventDetailsSheet extends StatelessWidget {
     required this.event,
     required this.joined,
     required this.onConfirm,
+    this.onUnavailable,
   });
   final LocalEvent event;
   final bool joined;
   final VoidCallback onConfirm;
+  final VoidCallback? onUnavailable;
 
   double get progress => event.targetTrees <= 0
       ? 0
@@ -26,6 +28,12 @@ class EventDetailsSheet extends StatelessWidget {
     if (event.effectiveEndDate.isBefore(today)) return 'COMPLETED';
     if (!event.date.isAfter(today)) return 'ONGOING';
     return 'UPCOMING';
+  }
+
+  bool get isUpcoming {
+    final today = DateTime.now();
+    final currentDay = DateTime(today.year, today.month, today.day);
+    return event.date.isAfter(currentDay);
   }
 
   String get schedule {
@@ -46,35 +54,37 @@ class EventDetailsSheet extends StatelessWidget {
           const SizedBox(height: 18),
           _Header(event: event, status: status, joined: joined),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _Metric(
-                  Icons.flag_outlined,
-                  '${event.targetTrees}',
-                  'Your quota',
+          if (status != 'UPCOMING') ...[
+            Row(
+              children: [
+                Expanded(
+                  child: _Metric(
+                    Icons.flag_outlined,
+                    '${event.targetTrees}',
+                    'Your quota',
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _Metric(
-                  Icons.task_alt_rounded,
-                  '${event.verifiedTrees}',
-                  'Completed',
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _Metric(
+                    Icons.task_alt_rounded,
+                    '${event.verifiedTrees}',
+                    'Completed',
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _Metric(
-                  Icons.groups_outlined,
-                  '${event.attendeeCount}',
-                  'Active now',
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _Metric(
+                    Icons.groups_outlined,
+                    '${event.attendeeCount}',
+                    'Active now',
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _ProgressCard(sheet: this),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _ProgressCard(sheet: this),
+          ],
           const SizedBox(height: 12),
           _InfoCard(
             title: 'Activity details',
@@ -92,7 +102,7 @@ class EventDetailsSheet extends StatelessWidget {
               ),
             ],
           ),
-          if (event.description.trim().isNotEmpty) ...[
+          if (status != 'UPCOMING' && event.description.trim().isNotEmpty) ...[
             const SizedBox(height: 16),
             const Text(
               'About this activity',
@@ -136,12 +146,25 @@ class EventDetailsSheet extends StatelessWidget {
             width: double.infinity,
             child: joined
                 ? OutlinedButton.icon(
-                    onPressed: onConfirm,
-                    icon: const Icon(Icons.exit_to_app_rounded, size: 18),
-                    label: const Text('Leave activity'),
+                    onPressed: isUpcoming ? onUnavailable : onConfirm,
+                    icon: Icon(
+                      isUpcoming
+                          ? Icons.schedule_rounded
+                          : Icons.exit_to_app_rounded,
+                      size: 18,
+                    ),
+                    label: Text(
+                      isUpcoming ? 'Manage Activity' : 'Leave activity',
+                    ),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF8A4035),
-                      side: const BorderSide(color: Color(0xFFE4B7AE)),
+                      foregroundColor: isUpcoming
+                          ? EcoTraceColors.muted
+                          : const Color(0xFF8A4035),
+                      side: BorderSide(
+                        color: isUpcoming
+                            ? EcoTraceColors.border
+                            : const Color(0xFFE4B7AE),
+                      ),
                       minimumSize: const Size.fromHeight(50),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),

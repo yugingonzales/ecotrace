@@ -13,6 +13,7 @@ class EventCard extends StatelessWidget {
     required this.joined,
     required this.onOpen,
     required this.onConfirm,
+    this.onUnavailable,
     this.eventLabel,
     this.statusLabel,
     this.warm = false,
@@ -26,6 +27,7 @@ class EventCard extends StatelessWidget {
   final bool joined;
   final VoidCallback onOpen;
   final VoidCallback onConfirm;
+  final VoidCallback? onUnavailable;
   final String? eventLabel;
   final String? statusLabel;
   final bool warm;
@@ -40,6 +42,7 @@ class EventCard extends StatelessWidget {
         : joined
         ? 'Manage Activity'
         : 'Join activity';
+    final isUpcoming = eventLabel == 'UPCOMING';
     final actionIcon = _isHistorical
         ? Icons.check_circle_outline_rounded
         : joined
@@ -180,17 +183,24 @@ class EventCard extends StatelessWidget {
                                   onPressed: _isHistorical
                                       ? null
                                       : joined
-                                      ? onOpen
+                                      ? (isUpcoming ? onUnavailable : onOpen)
                                       : onConfirm,
                                   icon: Icon(actionIcon, size: 17),
                                   label: Text(actionLabel),
                                   style: TextButton.styleFrom(
-                                    backgroundColor: _isHistorical
+                                    backgroundColor:
+                                        _isHistorical || (joined && isUpcoming)
                                         ? const Color(0xFFE8F0EC)
                                         : EcoTraceColors.forestDeep,
-                                    foregroundColor: _isHistorical
+                                    foregroundColor:
+                                        _isHistorical || (joined && isUpcoming)
                                         ? const Color(0xFF547568)
                                         : Colors.white,
+                                    overlayColor: _isHistorical
+                                        ? const Color(0xFFE8F0EC)
+                                        : (joined && isUpcoming)
+                                        ? const Color(0xFFD5E6DE)
+                                        : const Color(0xFF1A5A42),
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 12,
                                       vertical: 9,

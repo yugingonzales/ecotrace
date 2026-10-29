@@ -15,6 +15,7 @@ class AlertData {
     required this.body,
     required this.filter,
     this.eventName,
+    this.eventId,
     this.notificationCode,
     this.metadata = const <String, dynamic>{},
     this.read = false,
@@ -30,16 +31,26 @@ class AlertData {
   final String body;
   final AlertFilter filter;
   final String? eventName;
+  final String? eventId;
   final String? notificationCode;
   final Map<String, dynamic> metadata;
   final bool read;
 
-  bool get hasDetails =>
-      body.trim().isNotEmpty &&
-      (eventName != null ||
-          label == 'ANNOUNCEMENT' ||
-          label == 'EVENT UPDATE' ||
-          label == 'PARTICIPATION');
+  /// Only notifications with a concrete destination are actionable. Generic
+  /// announcements and alerts without the required event context remain
+  /// read-only.
+  bool get isActionable {
+    if (body.trim().isEmpty) return false;
+    if (notificationCode == 'verification_update') return true;
+    return eventId != null &&
+        switch (notificationCode) {
+          'event_live' ||
+          'upcoming_event' ||
+          'event_conclusion' ||
+          'event_update' => true,
+          _ => false,
+        };
+  }
 
   factory AlertData.fromApi(Map<String, dynamic> json) {
     final type = json['alert_type'] as String? ?? 'info';
@@ -56,8 +67,8 @@ class AlertData {
     final isRead = rawRead is bool
         ? rawRead
         : rawRead is num
-            ? rawRead != 0
-            : rawRead?.toString().toLowerCase() == 'true';
+        ? rawRead != 0
+        : rawRead?.toString().toLowerCase() == 'true';
     return AlertData(
       id: 'api-${json['alert_id']}',
       title: json['alert_title'] as String? ?? 'EcoTrace alert',
@@ -69,6 +80,7 @@ class AlertData {
       filter: AlertFilter.recent,
       read: isRead,
       eventName: json['event_title'] as String?,
+      eventId: _eventId(json['event_id']),
       notificationCode: json['notification_code'] as String?,
       metadata: _metadata(json['metadata']),
     );
@@ -96,9 +108,16 @@ class AlertData {
       filter: AlertFilter.recent,
       read: json['read'] as bool? ?? false,
       eventName: json['eventName'] as String?,
+      eventId: _eventId(json['eventId']),
       notificationCode: json['notification_code'] as String?,
       metadata: _metadata(json['metadata']),
     );
+  }
+
+  static String? _eventId(dynamic value) {
+    if (value == null) return null;
+    final text = value.toString();
+    return text.startsWith('api-') ? text : 'api-$text';
   }
 
   static Map<String, dynamic> _metadata(dynamic value) {

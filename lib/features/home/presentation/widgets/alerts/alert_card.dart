@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../shared/surface_card.dart';
 
-class AlertCard extends StatelessWidget {
+class AlertCard extends StatefulWidget {
   const AlertCard({
     required this.title,
     required this.time,
@@ -12,7 +12,10 @@ class AlertCard extends StatelessWidget {
     required this.textColor,
     required this.body,
     this.onViewed,
-    this.showDetails = false,
+    this.actionable = false,
+    this.eventName,
+    this.notificationCode,
+    this.onAction,
     super.key,
   });
 
@@ -23,104 +26,141 @@ class AlertCard extends StatelessWidget {
   final Color textColor;
   final String body;
   final VoidCallback? onViewed;
-  final bool showDetails;
-
-  bool get hasDetails => showDetails && body.trim().isNotEmpty;
+  final bool actionable;
+  final String? eventName;
+  final String? notificationCode;
+  final VoidCallback? onAction;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onViewed,
-    child: SurfaceCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: Color(0xFF0A231C),
-                    fontSize: 16,
-                    height: 1.2,
-                    fontWeight: FontWeight.w800,
-                  ),
+  State<AlertCard> createState() => _AlertCardState();
+}
+
+class _AlertCardState extends State<AlertCard> {
+  bool _viewedReported = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.actionable) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_viewedReported) {
+          _viewedReported = true;
+          widget.onViewed?.call();
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cardContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                widget.title,
+                style: const TextStyle(
+                  color: Color(0xFF0A231C),
+                  fontSize: 16,
+                  height: 1.2,
+                  fontWeight: FontWeight.w800,
                 ),
-              ),
-              const SizedBox(width: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            time,
-            style: const TextStyle(
-              color: Color(0xFF7A9185),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 10),
-          if (hasDetails)
-            Text(
-              body,
-              style: const TextStyle(
-                color: EcoTraceColors.muted,
-                fontSize: 12,
-                height: 1.45,
               ),
             ),
-          if (hasDetails) ...[
-            const SizedBox(height: 14),
-            TextButton(
-              onPressed: () {
-                onViewed?.call();
-                showDialog<void>(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: Text(title),
-                    content: Text(body),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Close'),
-                      ),
-                    ],
-                  ),
-                );
-              },
-              style: TextButton.styleFrom(
-                alignment: Alignment.centerLeft,
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: widget.color,
+                borderRadius: BorderRadius.circular(6),
               ),
-              child: const Text(
-                'View details  →',
+              child: Text(
+                widget.label,
                 style: TextStyle(
-                  color: EcoTraceColors.forest,
-                  fontSize: 12,
+                  color: widget.textColor,
+                  fontSize: 10,
                   fontWeight: FontWeight.w800,
                 ),
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          widget.time,
+          style: const TextStyle(
+            color: Color(0xFF7A9185),
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (widget.eventName != null &&
+            widget.eventName!.trim().isNotEmpty &&
+            !{
+              'upcoming_event',
+              'event_conclusion',
+            }.contains(widget.notificationCode)) ...[
+          const SizedBox(height: 6),
+          Text(
+            widget.eventName!,
+            style: const TextStyle(
+              color: EcoTraceColors.forest,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
         ],
-      ),
-    ),
-  );
+        if (widget.body.trim().isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            widget.body,
+            style: const TextStyle(
+              color: EcoTraceColors.muted,
+              fontSize: 12,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ],
+    );
+
+    if (widget.actionable && widget.onAction != null) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: EcoTraceColors.border),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x08000000),
+              blurRadius: 12,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: widget.onAction,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: cardContent,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SurfaceCard(
+      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 8),
+      borderRadius: 8,
+      child: cardContent,
+    );
+  }
 }
