@@ -1,9 +1,6 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:flutter/rendering.dart';
 
-import '../../../../../core/config/api_config.dart';
 import '../../../../../core/date/app_date.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../data/event_client.dart';
@@ -25,10 +22,12 @@ class EventsScreen extends StatefulWidget {
     super.key,
     this.joinedEventIds = const <String>{},
     this.onJoinedEventsChanged = _ignoreJoinedEvents,
+    this.active = true,
   });
 
   final Set<String> joinedEventIds;
   final ValueChanged<Set<String>> onJoinedEventsChanged;
+  final bool active;
 
   static void _ignoreJoinedEvents(Set<String> _) {}
 
@@ -37,7 +36,9 @@ class EventsScreen extends StatefulWidget {
 }
 
 class _EventsScreenState extends State<EventsScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  bool _refreshInProgress = false;
+
   /// Events are authored by administrators and loaded from the shared API.
   List<LocalEvent> _events = <LocalEvent>[];
   bool _loading = true;
@@ -45,13 +46,12 @@ class _EventsScreenState extends State<EventsScreen>
 
   late DateTime _selectedDay = AppDate.dayOf(DateTime.now());
 
-  /// The strip is a rolling window anchored on today, so it can never show a
-  /// stale month and always offers the days the seed data lands on.
-  late final DateTime _stripStart = AppDate.dayOf(DateTime.now());
-
-  /// Six weeks of selectable days — long enough to cover the generated
-  /// schedule and a week of browsing, short enough to stay cheap to lay out.
-  static const int _stripSpan = 42;
+  /// The compact date slider covers the complete event date range, including
+  /// past events, while always including today as a useful anchor. It also
+  /// continues well beyond the final event so the slider does not stop at the
+  /// last day of a month or at the last scheduled activity.
+  DateTime _stripStart = AppDate.dayOf(DateTime.now());
+  int _stripSpan = 120;
 
   /// Lowercase search text (title + location + description) per event,
   /// computed once instead of rebuilt on every `_visibleEvents` pass.
@@ -81,22 +81,11 @@ class _EventsScreenState extends State<EventsScreen>
   double _lastListPixels = 0;
 
   String _query = '';
+  bool _showHistory = false;
 
   Future<void> _loadActiveEvents() async {
     try {
-      final token = await AuthSession.token();
-      final response = await http
-          .get(
-            Uri.parse(ApiConfig.events),
-            headers: token == null ? null : {'Authorization': 'Bearer $token'},
-          )
-          .timeout(const Duration(seconds: 8));
-      if (response.statusCode != 200) throw Exception('event request failed');
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      final items = body['items'] as List<dynamic>? ?? const <dynamic>[];
-      final loaded = items
-          .map((item) => LocalEvent.fromApi(item as Map<String, dynamic>))
-          .toList();
+      final loaded = await EventClient.all();
       final session = await AuthSession.restore();
       for (final event in loaded) {
         if (widget.joinedEventIds.contains(event.id) &&
@@ -127,8 +116,19 @@ class _EventsScreenState extends State<EventsScreen>
                 .toLowerCase(),
         };
         if (_events.isNotEmpty) {
-          _selectedDay = AppDate.dayOf(_events.first.date);
+          final today = AppDate.dayOf(DateTime.now());
+          final first = _events
+              .map((event) => AppDate.dayOf(event.date))
+              .reduce((a, b) => a.isBefore(b) ? a : b);
+          final latestEventDay = _events
+              .map((event) => AppDate.dayOf(event.effectiveEndDate))
+              .reduce((a, b) => a.isAfter(b) ? a : b);
+          final last = latestEventDay.isAfter(today) ? latestEventDay : today;
+          _stripStart = first.isBefore(today) ? first : today;
+          final eventRange = AppDate.daysBetween(_stripStart, last) + 1;
+          _stripSpan = eventRange < 120 ? 120 : eventRange;
         }
+        _selectedDay = AppDate.dayOf(DateTime.now());
       });
     } catch (_) {
       if (mounted) {
@@ -142,10 +142,20 @@ class _EventsScreenState extends State<EventsScreen>
 
   Set<String> get _joinedEvents => widget.joinedEventIds;
 
-  /// Distinct days that actually have activities, as real dates.
-  List<DateTime> get _daysWithEvents =>
-      _events.map((event) => AppDate.dayOf(event.date)).toSet().toList()
-        ..sort();
+  /// Distinct days covered by activities, including every day of a
+  /// multi-day event so users can find it from any date in its range.
+  List<DateTime> get _daysWithEvents {
+    final days = <DateTime>{};
+    for (final event in _events) {
+      var day = AppDate.dayOf(event.date);
+      final end = AppDate.dayOf(event.effectiveEndDate);
+      while (!day.isAfter(end)) {
+        days.add(day);
+        day = day.add(const Duration(days: 1));
+      }
+    }
+    return days.toList()..sort();
+  }
 
   List<DateTime> get _eventEndDays =>
       _events
@@ -154,24 +164,30 @@ class _EventsScreenState extends State<EventsScreen>
           .toList()
         ..sort();
 
-  List<LocalEvent> get _eventsForSelectedDay => _events
-      .where((event) => AppDate.isSameDay(event.date, _selectedDay))
+  List<LocalEvent> get _pastEvents => _events
+      .where(
+        (event) =>
+            event.effectiveEndDate.isBefore(AppDate.dayOf(DateTime.now())),
+      )
       .toList();
 
-  /// Events scheduled on the selected day that satisfy the active search.
-  List<LocalEvent> get _visibleEvents {
-    return _events.where((event) {
-      final matchesDay = AppDate.isSameDay(event.date, _selectedDay);
-      final matchesQuery =
-          _query.isEmpty ||
-          _searchText[event.id]!.contains(_query.toLowerCase());
-      return matchesDay && matchesQuery;
-    }).toList();
-  }
+  List<LocalEvent> get _currentAndUpcomingEvents => _events
+      .where(
+        (event) =>
+            !event.effectiveEndDate.isBefore(AppDate.dayOf(DateTime.now())),
+      )
+      .toList();
+
+  /// All events remain visible; the slider is only a date navigator and no
+  /// longer filters the list into today's or future schedules.
+  bool _matchesQuery(LocalEvent event) =>
+      _query.isEmpty ||
+      (_searchText[event.id] ?? '').contains(_query.toLowerCase());
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _searchText = {
       for (final event in _events)
         event.id: '${event.title} ${event.location} ${event.description}'
@@ -184,7 +200,31 @@ class _EventsScreenState extends State<EventsScreen>
   }
 
   @override
+  void didUpdateWidget(covariant EventsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !oldWidget.active) _refreshFromServer();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && widget.active) {
+      _refreshFromServer();
+    }
+  }
+
+  Future<void> _refreshFromServer() async {
+    if (_refreshInProgress) return;
+    _refreshInProgress = true;
+    try {
+      await _loadActiveEvents();
+    } finally {
+      _refreshInProgress = false;
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _stripController.dispose();
     _listController.dispose();
     _stripCollapse.dispose();
@@ -208,8 +248,8 @@ class _EventsScreenState extends State<EventsScreen>
   /// Glides the strip so the given day is centered in the visible viewport.
   void _scrollToDay(DateTime day) {
     if (!_stripController.hasClients) return;
-    const itemWidth = 52.0;
-    const spacing = 3.0;
+    const itemWidth = 42.0;
+    const spacing = 2.0;
     final viewport = _stripController.position.viewportDimension;
     final maxExtent = _stripController.position.maxScrollExtent;
     // The strip window starts today, so a day's offset within it is the same
@@ -226,28 +266,46 @@ class _EventsScreenState extends State<EventsScreen>
 
   /// Pull-to-refresh: jumps back to the current day and re-centers the strip.
   Future<void> _refresh() async {
-    setState(() => _selectedDay = _stripStart);
+    await _refreshFromServer();
+    if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _scrollToDay(_selectedDay);
     });
-    await Future<void>.delayed(const Duration(milliseconds: 600));
   }
 
-  /// Collapses the calendar strip while the user scrolls further down the
-  /// list, and brings it back when they reach the very top of the list.
+  /// Collapses the calendar strip while the user scrolls down and reveals it
+  /// as soon as the user scrolls back up, even before reaching the top.
   ///
   bool _handleListScroll(ScrollNotification notification) {
-    if (notification is! ScrollUpdateNotification) return false;
-    // The horizontal calendar strip is a sibling of the list rather than a
-    // descendant, so its notifications never reach this listener.
-    final pixels = notification.metrics.pixels;
-    final delta = pixels - _lastListPixels;
-    _lastListPixels = pixels;
+    if (notification.metrics.axis != Axis.vertical) return false;
 
+    final pixels = notification.metrics.pixels;
     if (pixels <= _revealAtTop) {
+      _lastListPixels = pixels;
       _setStripCollapsed(false);
-    } else if (delta > 0 && pixels > _collapseAfter) {
-      _setStripCollapsed(true);
+      return false;
+    }
+
+    if (notification is UserScrollNotification) {
+      if (notification.direction == ScrollDirection.forward) {
+        _setStripCollapsed(false);
+      } else if (notification.direction == ScrollDirection.reverse &&
+          pixels > _collapseAfter) {
+        _setStripCollapsed(true);
+      }
+      return false;
+    }
+
+    if (notification is ScrollUpdateNotification) {
+      // The horizontal calendar strip is a sibling of the list rather than a
+      // descendant, so its notifications never reach this listener.
+      final delta = pixels - _lastListPixels;
+      _lastListPixels = pixels;
+      if (delta < 0) {
+        _setStripCollapsed(false);
+      } else if (delta > 0 && pixels > _collapseAfter) {
+        _setStripCollapsed(true);
+      }
     }
     return false;
   }
@@ -396,11 +454,41 @@ class _EventsScreenState extends State<EventsScreen>
     }
   }
 
+  Widget _eventCard(LocalEvent event) => EventCard(
+    time: _dateRangeLabel(event),
+    title: event.title,
+    location: event.location,
+    description: event.description,
+    attendeeCount:
+        event.attendeeCount + (_joinedEvents.contains(event.id) ? 1 : 0),
+    warm: event.warm,
+    joined: _joinedEvents.contains(event.id),
+    eventLabel: _pastEvents.contains(event)
+        ? null
+        : !event.date.isAfter(AppDate.dayOf(DateTime.now()))
+        ? 'ONGOING'
+        : 'UPCOMING',
+    statusLabel: _pastEvents.contains(event)
+        ? (_joinedEvents.contains(event.id)
+              ? 'participated'
+              : 'not participated')
+        : null,
+    onOpen: () => _showDetails(event),
+    onConfirm: () => _requestParticipation(event),
+  );
+
+  String _dateRangeLabel(LocalEvent event) {
+    final start = AppDate.shortLabel(event.date);
+    final end = AppDate.shortLabel(event.effectiveEndDate);
+    return start == end ? start : '$start – $end';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final visibleEvents = _visibleEvents;
-    final selectedHeading = AppDate.scheduleHeading(_selectedDay);
-    final dayEventCount = _eventsForSelectedDay.length;
+    final pastEvents = _pastEvents.where(_matchesQuery).toList();
+    final catalogueEvents = _currentAndUpcomingEvents
+        .where(_matchesQuery)
+        .toList();
 
     return Column(
       children: [
@@ -463,9 +551,9 @@ class _EventsScreenState extends State<EventsScreen>
                     showFilter: false,
                   ),
                   Padding(
-                    padding: const EdgeInsets.only(right: 20),
+                    padding: const EdgeInsets.only(right: 20, top: 4),
                     child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Expanded(
                           child: Column(
@@ -482,9 +570,7 @@ class _EventsScreenState extends State<EventsScreen>
                               ),
                               SizedBox(height: 2),
                               Text(
-                                selectedHeading == 'Today'
-                                    ? 'Today\'s schedule'
-                                    : '$selectedHeading\'s schedule',
+                                'All events',
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -511,7 +597,7 @@ class _EventsScreenState extends State<EventsScreen>
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              '$dayEventCount ${dayEventCount == 1 ? 'activity' : 'activities'}',
+                              '${_events.length} ${_events.length == 1 ? 'event' : 'events'}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -525,7 +611,7 @@ class _EventsScreenState extends State<EventsScreen>
                       ],
                     ),
                   ),
-                  //
+                  const SizedBox(height: 4),
                   Padding(
                     padding: const EdgeInsets.only(right: 20),
                     child: AnimatedBuilder(
@@ -546,11 +632,15 @@ class _EventsScreenState extends State<EventsScreen>
                         children: [
                           const SizedBox(height: 10),
                           CalendarStrip(
+                            key: const Key('events-calendar-strip'),
                             startDay: _stripStart,
                             span: _stripSpan,
                             selectedDay: _selectedDay,
                             onSelected: _selectDay,
-                            daysWithEvents: _daysWithEvents,
+                            daysWithEvents: _events
+                                .map((event) => event.date)
+                                .toList(),
+                            endDaysWithEvents: _eventEndDays,
                             scrollController: _stripController,
                           ),
                         ],
@@ -576,10 +666,6 @@ class _EventsScreenState extends State<EventsScreen>
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
                     children: [
-                      SectionTitle(
-                        'Schedule for '
-                        '${selectedHeading == 'Today' ? 'today' : selectedHeading.toLowerCase()}',
-                      ),
                       if (_loading)
                         const Padding(
                           padding: EdgeInsets.all(32),
@@ -589,24 +675,44 @@ class _EventsScreenState extends State<EventsScreen>
                         const EmptyEventsState(
                           message: 'Unable to load events. Pull to retry.',
                         )
-                      else if (visibleEvents.isEmpty)
+                      else if (catalogueEvents.isEmpty && pastEvents.isEmpty)
                         const EmptyEventsState()
-                      else
-                        ...visibleEvents.map(
-                          (event) => EventCard(
-                            time: event.time,
-                            title: event.title,
-                            location: event.location,
-                            description: event.description,
-                            attendeeCount:
-                                event.attendeeCount +
-                                (_joinedEvents.contains(event.id) ? 1 : 0),
-                            warm: event.warm,
-                            joined: _joinedEvents.contains(event.id),
-                            onOpen: () => _showDetails(event),
-                            onConfirm: () => _requestParticipation(event),
+                      else ...[
+                        if (catalogueEvents.isNotEmpty)
+                          ...catalogueEvents.map(_eventCard),
+                        if (pastEvents.isNotEmpty) ...[
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              key: const Key('event-history-button'),
+                              onPressed: () =>
+                                  setState(() => _showHistory = !_showHistory),
+                              icon: Icon(
+                                _showHistory
+                                    ? Icons.history_toggle_off_rounded
+                                    : Icons.history_rounded,
+                                size: 18,
+                              ),
+                              label: Text(
+                                _showHistory
+                                    ? 'Hide event history'
+                                    : 'Event history',
+                              ),
+                              style: TextButton.styleFrom(
+                                foregroundColor: EcoTraceColors.forest,
+                                textStyle: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                          if (_showHistory) ...[
+                            const SectionTitle('Past events'),
+                            ...pastEvents.map(_eventCard),
+                          ],
+                        ],
+                      ],
                     ],
                   ),
                 ),

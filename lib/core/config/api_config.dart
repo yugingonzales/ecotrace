@@ -6,7 +6,7 @@ class ApiConfig {
   // flutter run --dart-define=ECOTRACE_API_BASE_URL=http://YOUR_PC_LAN_IP:3000/api
   static const String baseUrl = String.fromEnvironment(
     'ECOTRACE_API_BASE_URL',
-    defaultValue: 'http://192.168.1.71:3000/api',
+    defaultValue: 'http://192.168.1.5:3000/api',
   );
 
   // Auth endpoints
@@ -17,7 +17,9 @@ class ApiConfig {
   // Health check
   static const String health = '$baseUrl/health';
   static const String events = '$baseUrl/events?status=active';
+  static const String allEvents = '$baseUrl/events';
   static const String joinedEvents = '$baseUrl/events/joined';
   static const String alerts = '$baseUrl/alerts';
   static const String plants = '$baseUrl/plants';
+  static const String mySubmissions = '$baseUrl/submissions/mine';
 }

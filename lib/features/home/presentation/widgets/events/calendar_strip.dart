@@ -13,9 +13,10 @@ class CalendarStrip extends StatelessWidget {
     required this.onSelected,
     this.span = 42,
     this.daysWithEvents = const [],
+    this.endDaysWithEvents = const [],
     this.scrollController,
-    this.itemWidth = 52,
-    this.spacing = 3,
+    this.itemWidth = 42,
+    this.spacing = 2,
   });
 
   /// First day in the window, normally today.
@@ -27,7 +28,9 @@ class CalendarStrip extends StatelessWidget {
   /// Number of selectable days offered.
   final int span;
 
+  /// Start dates receive the green marker; end dates receive the amber marker.
   final List<DateTime> daysWithEvents;
+  final List<DateTime> endDaysWithEvents;
   final ScrollController? scrollController;
   final double itemWidth;
   final double spacing;
@@ -42,6 +45,7 @@ class CalendarStrip extends StatelessWidget {
       growable: false,
     );
     final eventDays = daysWithEvents.map(AppDate.dayOf).toSet();
+    final endDays = endDaysWithEvents.map(AppDate.dayOf).toSet();
 
     return Container(
       padding: const EdgeInsets.all(4),
@@ -50,7 +54,7 @@ class CalendarStrip extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
       ),
       child: SizedBox(
-        height: 58,
+        height: 46,
         child: ListView.separated(
           controller: scrollController,
           scrollDirection: Axis.horizontal,
@@ -61,6 +65,7 @@ class CalendarStrip extends StatelessWidget {
             final day = days[index];
             final isSelected = AppDate.isSameDay(day, selectedDay);
             final hasEvents = eventDays.contains(day);
+            final hasEnd = endDays.contains(day);
             final isToday = AppDate.isSameDay(day, today);
             final foreground = isSelected
                 ? const Color(0xFF0A231C)
@@ -71,7 +76,10 @@ class CalendarStrip extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               child: Container(
                 width: itemWidth,
-                padding: const EdgeInsets.symmetric(vertical: 2),
+                // The ListView already provides vertical breathing room. Keeping
+                // this item padding at zero prevents the fixed-height strip from
+                // overflowing by a pixel on devices with fractional text metrics.
+                padding: EdgeInsets.zero,
                 decoration: BoxDecoration(
                   color: isSelected ? EcoTraceColors.lemon : Colors.transparent,
                   borderRadius: BorderRadius.circular(12),
@@ -102,10 +110,14 @@ class CalendarStrip extends StatelessWidget {
                     ),
                     const SizedBox(height: 1),
                     Container(
-                      width: 4,
-                      height: 4,
+                      width: 5,
+                      height: 5,
                       decoration: BoxDecoration(
-                        color: hasEvents
+                        color: hasEnd
+                            ? (isSelected
+                                  ? const Color(0xFF0A231C)
+                                  : const Color(0xFFF59E0B))
+                            : hasEvents
                             ? (isSelected
                                   ? const Color(0xFF0A231C)
                                   : EcoTraceColors.lemon)

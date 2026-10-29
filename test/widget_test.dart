@@ -362,13 +362,12 @@ void main() {
     expect(find.byTooltip('Calendar'), findsOneWidget);
     expect(find.text('Tree planting & tagging'), findsWidgets);
 
-    // Scrolling back up but staying below the top keeps it collapsed, so a
-    // long list keeps its reclaimed space.
+    // Scrolling back up reveals the calendar before reaching the top.
     await tester.drag(list, const Offset(0, 60));
     await tester.pumpAndSettle();
-    expect(tester.getSize(strip).height, 0);
+    expect(tester.getSize(strip).height, greaterThan(0));
 
-    // Reaching the very top brings the calendar back.
+    // Reaching the very top keeps the calendar visible.
     await tester.drag(list, const Offset(0, 600));
     await tester.pumpAndSettle();
     expect(tester.getSize(strip).height, greaterThan(0));
@@ -428,14 +427,14 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Leave activity'), findsOneWidget);
+    expect(find.text('Manage Activity'), findsOneWidget);
 
     // It clears itself after the receipt window, driven by the ticker so the
     // test needs no real-time delay.
     await tester.pump(kParticipationReceiptDuration);
     await tester.pumpAndSettle();
     expect(find.text("You're in!"), findsNothing);
-    expect(find.text('Leave activity'), findsOneWidget);
+    expect(find.text('Manage Activity'), findsOneWidget);
   });
 
   testWidgets('leaving participation requires Quit and shows success', (
@@ -451,8 +450,13 @@ void main() {
     await tester.pump(kParticipationReceiptDuration);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Leave activity'));
+    await tester.tap(find.text('Manage Activity'));
     await tester.pumpAndSettle();
+    expect(find.text('Your quota'), findsOneWidget);
+    expect(find.text('Completed'), findsOneWidget);
+    expect(find.text('Active now'), findsOneWidget);
+    expect(find.text('Your activity progress'), findsOneWidget);
+    expect(find.text('Activity details'), findsOneWidget);
     expect(find.text('LEAVE ACTIVITY'), findsOneWidget);
     expect(find.text('Keep activity'), findsOneWidget);
 

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 enum AlertFilter { all, recent }
@@ -13,6 +15,8 @@ class AlertData {
     required this.body,
     required this.filter,
     this.eventName,
+    this.notificationCode,
+    this.metadata = const <String, dynamic>{},
     this.read = false,
   });
 
@@ -26,6 +30,8 @@ class AlertData {
   final String body;
   final AlertFilter filter;
   final String? eventName;
+  final String? notificationCode;
+  final Map<String, dynamic> metadata;
   final bool read;
 
   bool get hasDetails =>
@@ -63,6 +69,8 @@ class AlertData {
       filter: AlertFilter.recent,
       read: isRead,
       eventName: json['event_title'] as String?,
+      notificationCode: json['notification_code'] as String?,
+      metadata: _metadata(json['metadata']),
     );
   }
 
@@ -88,7 +96,18 @@ class AlertData {
       filter: AlertFilter.recent,
       read: json['read'] as bool? ?? false,
       eventName: json['eventName'] as String?,
+      notificationCode: json['notification_code'] as String?,
+      metadata: _metadata(json['metadata']),
     );
+  }
+
+  static Map<String, dynamic> _metadata(dynamic value) {
+    if (value is Map) return Map<String, dynamic>.from(value);
+    if (value is String) {
+      final decoded = jsonDecode(value);
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    }
+    return const <String, dynamic>{};
   }
 
   static String _relativeTime(DateTime value) {

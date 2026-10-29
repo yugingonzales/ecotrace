@@ -110,6 +110,10 @@ class _AlertsScreenState extends State<AlertsScreen> {
     final visibleAlerts = _filter == AlertFilter.all
         ? allAlerts
         : allAlerts.where((alert) => alert.filter == _filter).toList();
+    final liveAlert = allAlerts.cast<AlertData?>().firstWhere(
+          (alert) => alert?.notificationCode == 'event_live',
+          orElse: () => null,
+        );
     return Column(
       children: [
         Container(
@@ -200,6 +204,32 @@ class _AlertsScreenState extends State<AlertsScreen> {
                   const Text(
                     'Unable to load alerts. Pull to retry.',
                     textAlign: TextAlign.center,
+                  ),
+                if (liveAlert != null)
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD7F5E3),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFF86EFAC)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.radar_rounded, color: Color(0xFF15803D)),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            '${liveAlert.title}\nGeofencing and AR capture are open.',
+                            style: const TextStyle(
+                              color: Color(0xFF14532D),
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 FilterTabs(
                   selected: _filter,

@@ -4,6 +4,7 @@ import '../../../../../core/theme/app_theme.dart';
 import '../../models/event_quota.dart';
 import '../../models/local_event.dart';
 import '../../widgets/events/leave_confirmation_card.dart';
+import '../verification/verification_status_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({
@@ -86,6 +87,26 @@ class DashboardScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
                 _UserProgressCard(verified: verified, pending: pending),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 54,
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const VerificationStatusScreen(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.fact_check_outlined),
+                    label: const Text('View verification status'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: EcoTraceColors.forest,
+                      side: const BorderSide(color: EcoTraceColors.forest),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 16),
                 SizedBox(
                   height: 54,

@@ -7,13 +7,51 @@ import '../../../../core/config/api_config.dart';
 import '../../../auth/data/auth_client.dart';
 import '../models/local_event.dart';
 
+class _DefaultEventHttpClient extends http.BaseClient {
+  final http.Client _client = http.Client();
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) =>
+      _client.send(request);
+
+  @override
+  void close() => _client.close();
+}
+
 class EventClient {
   static const _cacheKey = 'ecotrace.joined_events';
+
+  /// Replaced by tests with a deterministic client. Production uses the
+  /// package client and keeps the same request behavior.
+  static http.BaseClient httpClient = _DefaultEventHttpClient();
+
+  static Future<List<LocalEvent>> active() => _load(ApiConfig.events);
+
+  /// Loads the complete event catalogue so the Events tab can show upcoming,
+  /// ongoing, and historical activities together.
+  static Future<List<LocalEvent>> all() => _load(ApiConfig.allEvents);
+
+  static Future<List<LocalEvent>> _load(String endpoint) async {
+    final token = await AuthSession.token();
+    final response = await httpClient
+        .get(
+          Uri.parse(endpoint),
+          headers: token == null ? null : {'Authorization': 'Bearer $token'},
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode != 200) {
+      throw const EventClientException('Unable to load events.');
+    }
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return (body['items'] as List<dynamic>? ?? const <dynamic>[])
+        .map((item) => LocalEvent.fromApi(item as Map<String, dynamic>))
+        .toList();
+  }
 
   static Future<List<LocalEvent>> joined() async {
     final token = await AuthSession.token();
     if (token == null) return cachedJoined();
-    final response = await http
+    final response = await httpClient
         .get(Uri.parse(ApiConfig.joinedEvents), headers: _headers(token))
         .timeout(const Duration(seconds: 8));
     if (response.statusCode != 200) {

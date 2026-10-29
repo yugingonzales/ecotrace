@@ -21,8 +21,9 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
-  int _index = 0;
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
+  int _index = 4;
+  bool _joinedRefreshInProgress = false;
   Set<String> _joinedEventIds = <String>{};
   List<LocalEvent> _joinedEvents = <LocalEvent>[];
   int _unreadNotificationCount = 0;
@@ -30,7 +31,23 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadJoinedEvents();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshJoinedEvents();
+  }
+
+  Future<void> _refreshJoinedEvents() async {
+    if (_joinedRefreshInProgress) return;
+    _joinedRefreshInProgress = true;
+    try {
+      await _loadJoinedEvents();
+    } finally {
+      _joinedRefreshInProgress = false;
+    }
   }
 
   Future<void> _loadJoinedEvents() async {
@@ -53,6 +70,18 @@ class _AppShellState extends State<AppShell> {
     });
   }
 
+  void _selectTab(int index) {
+    if (index == _index) return;
+    setState(() => _index = index);
+    if (index == 0 || index == 4) _refreshJoinedEvents();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
   void _leaveFromDashboard(LocalEvent event) {
     final next = {..._joinedEventIds}..remove(event.id);
     _setJoinedEventIds(next);
@@ -62,6 +91,7 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     final pages = <Widget>[
       EventsScreen(
+        active: _index == 0,
         joinedEventIds: _joinedEventIds,
         onJoinedEventsChanged: _setJoinedEventIds,
       ),
@@ -98,8 +128,8 @@ class _AppShellState extends State<AppShell> {
         body: IndexedStack(index: _index, children: pages),
         bottomNavigationBar: BottomNavigation(
           selectedIndex: _index,
-          onSelected: (value) => setState(() => _index = value),
-          onProgress: () => setState(() => _index = 4),
+          onSelected: _selectTab,
+          onProgress: () => _selectTab(4),
           unreadCount: _unreadNotificationCount,
         ),
       ),
